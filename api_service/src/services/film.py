@@ -65,9 +65,6 @@ class FilmService(BaseService):
                     "should": [
                         {"nested": {"path": "actors", "query": {"term": {"actors.id": person_id}}}},
                         {"nested": {"path": "writers", "query": {"term": {"writers.id": person_id}}}},
-                        # В вашей модели Film нет поля directors, поэтому я его убрал.
-                        # Если оно появится, можно будет раскомментировать.
-                        # {"nested": {"path": "directors", "query": {"term": {"directors.id": person_id}}}},
                     ],
                     "minimum_should_match": 1
                 }
