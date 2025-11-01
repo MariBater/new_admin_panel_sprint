@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import List, Optional
+from typing import List
 
 from elasticsearch import AsyncElasticsearch, NotFoundError
 from fastapi import Depends
@@ -17,14 +17,14 @@ class FilmService:
         self.elastic = elastic
 
     @redis_cache(key_prefix='film_by_id', model=FilmExtended, single_item=True)
-    async def get_by_id(self, film_id: str) -> Optional[FilmExtended]:
+    async def get_by_id(self, film_id: str) -> FilmExtended | None:
         return await self._get_film_from_elastic(film_id)
 
     @redis_cache(key_prefix='genre_list', model=Film)
     async def get_all(
         self,
-        genre: Optional[str] = None,
-        sort: Optional[str] = None,
+        genre: str | None = None,
+        sort: str | None = None,
         page_number: int = 1,
         page_size: int = 50,
     ) -> List[Film]:
@@ -73,8 +73,8 @@ class FilmService:
 
     async def _get_films_from_elastic(
         self,
-        genre: Optional[str] = None,
-        sort: Optional[str] = None,
+        genre: str | None = None,
+        sort: str | None = None,
         page_number: int = 1,
         page_size: int = 50,
     ) -> List[Film]:
@@ -117,7 +117,7 @@ class FilmService:
         except NotFoundError:
             return []
 
-    async def _get_film_from_elastic(self, film_id: str) -> Optional[FilmExtended]:
+    async def _get_film_from_elastic(self, film_id: str) -> FilmExtended | None:
         try:
             doc = await self.elastic.get(index='movies', id=film_id)
         except NotFoundError:

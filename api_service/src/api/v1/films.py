@@ -1,8 +1,8 @@
 from http import HTTPStatus
-from typing import List, Optional
+from typing import Annotated, List
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from schemas.person import Person
 from schemas.genre import Genre
 from schemas.film import Film, FilmExtended
@@ -17,10 +17,10 @@ router = APIRouter()
     response_model=List[Film],
 )
 async def films(
-    genre: Optional[str] = None,
-    sort: Optional[str] = None,
-    page_number: int = 1,
-    page_size: int = 50,
+    genre: str | None = None,
+    sort: str | None = None,
+    page_number: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=50)] = 50,
     film_service: FilmService = Depends(get_film_service),
 ) -> List[Film]:
 
@@ -41,8 +41,8 @@ async def films(
 )
 async def films_search(
     query: str,
-    page_number: int = 1,
-    page_size: int = 50,
+    page_number: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=50)] = 50,
     film_service: FilmService = Depends(get_film_service),
 ) -> List[Film]:
     film_list = await film_service.search(
