@@ -1,77 +1,128 @@
 from functools import lru_cache
-from typing import Optional
+from typing import List, Optional
 
 from elasticsearch import AsyncElasticsearch, NotFoundError
 from fastapi import Depends
 from redis.asyncio import Redis
 
+from services.caching import redis_cache
 from db.elastic import get_elastic
 from db.redis import get_redis
-from services.caching import redis_cache
-from models.film import Film
-from services.base import BaseService
+from models.film import Film, FilmExtended
 
 
-class FilmService(BaseService):
+class FilmService:
     def __init__(self, redis: Redis, elastic: AsyncElasticsearch):
-        super().__init__(elastic)
         self.redis = redis
-        self.index_name = 'movies'
-        self.model = Film
+        self.elastic = elastic
 
-    @redis_cache(key_prefix='films_search')
-    async def search_films(
+    @redis_cache(key_prefix='film_by_id', model=FilmExtended, single_item=True)
+    async def get_by_id(self, film_id: str) -> Optional[FilmExtended]:
+        return await self._get_film_from_elastic(film_id)
+
+    @redis_cache(key_prefix='genre_list', model=Film)
+    async def get_all(
         self,
-        query: Optional[str],
-        genre_id: Optional[str],
-        sort: Optional[str],
-        page_number: int,
-        page_size: int,
-    ) -> list[Film]:
-        search_query = {
-            "from": (page_number - 1) * page_size,
-            "size": page_size,
-            "query": {"bool": {"must": []}},
-        }
+        genre: Optional[str] = None,
+        sort: Optional[str] = None,
+        page_number: int = 1,
+        page_size: int = 50,
+    ) -> List[Film]:
+        return await self._get_films_from_elastic(
+            genre=genre, sort=sort, page_number=page_number, page_size=page_size
+        )
 
-        if query:
-            search_query["query"]["bool"]["must"].append(
-                {"multi_match": {"query": query, "fields": ["title", "description"]}}
-            )
+    @redis_cache(key_prefix='search_genre_list', model=Film)
+    async def search(
+        self,
+        query: str,
+        page_number: int = 1,
+        page_size: int = 50,
+    ) -> List[Film]:
 
-        if genre_id:
-            search_query["query"]["bool"]["must"].append(
-                {"nested": {"path": "genres", "query": {"term": {"genres.id": genre_id}}}}
-            )
+        return await self._searh_films_from_elastic(
+            query=query, page_number=page_number, page_size=page_size
+        )
 
-        if not search_query["query"]["bool"]["must"]:
-            search_query["query"] = {"match_all": {}}
-
-        if sort:
-            field = sort.lstrip('-')
-            order = "desc" if sort.startswith('-') else "asc"
-            search_query["sort"] = [{field: {"order": order}}]
-
-        response = await self.elastic.search(index=self.index_name, body=search_query)
-        return [self.model(**hit['_source']) for hit in response['hits']['hits']]
-
-    @redis_cache(key_prefix='films_by_person')
-    async def get_films_by_person(self, person_id: str, page_number: int, page_size: int) -> list[Film]:
-        search_query = {
-            "from": (page_number - 1) * page_size,
-            "size": page_size,
-            "query": {
-                "bool": {
-                    "should": [
-                        {"nested": {"path": "actors", "query": {"term": {"actors.id": person_id}}}},
-                        {"nested": {"path": "writers", "query": {"term": {"writers.id": person_id}}}},
-                    ],
-                    "minimum_should_match": 1
+    async def _searh_films_from_elastic(
+        self,
+        query: str,
+        page_number: int = 1,
+        page_size: int = 50,
+    ) -> List[Film]:
+        try:
+            query_body = {"match_all": {}}
+            if query:
+                query_body = {
+                    "multi_match": {"query": query, 'fields': ["title", "description"]}
                 }
+
+            body = {
+                "query": query_body,
+                "from": (page_number - 1) * page_size,
+                "size": page_size,
             }
-        }
-        response = await self.elastic.search(index=self.index_name, body=search_query)
-        return [self.model(**hit['_source']) for hit in response['hits']['hits']]
+
+            elastic_response = await self.elastic.search(index='movies', body=body)
+            return [
+                FilmExtended(**item["_source"])
+                for item in elastic_response["hits"]["hits"]
+            ]
+        except NotFoundError:
+            return []
+
+    async def _get_films_from_elastic(
+        self,
+        genre: Optional[str] = None,
+        sort: Optional[str] = None,
+        page_number: int = 1,
+        page_size: int = 50,
+    ) -> List[Film]:
+        try:
+            query_sort = []
+            if sort:
+                sort_order = 'asc'
+                if '-' in sort:
+                    sort_order = 'desc'
+                    sort = sort[1:]
+                query_sort = [{sort: {"order": sort_order}}]
+
+            query = {"match_all": {}}
+            if genre:
+                query = {
+                    "bool": {
+                        "filter": [
+                            {
+                                "nested": {
+                                    "path": "genres",
+                                    "query": {"term": {"genres.id": genre}},
+                                }
+                            }
+                        ],
+                    },
+                }
+
+            body = {
+                "query": query,
+                "sort": query_sort,
+                "from": (page_number - 1) * page_size,
+                "size": page_size,
+            }
+
+            elastic_response = await self.elastic.search(index='movies', body=body)
+            return [
+                FilmExtended(**item["_source"])
+                for item in elastic_response["hits"]["hits"]
+            ]
+        except NotFoundError:
+            return []
+
+    async def _get_film_from_elastic(self, film_id: str) -> Optional[FilmExtended]:
+        try:
+            doc = await self.elastic.get(index='movies', id=film_id)
+        except NotFoundError:
+            return None
+        return FilmExtended(**doc['_source'])
 
 
 @lru_cache()

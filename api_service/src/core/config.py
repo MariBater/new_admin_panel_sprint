@@ -16,7 +16,7 @@ ELASTIC_HOST = os.getenv('ELASTIC_HOST', '127.0.0.1')
 ELASTIC_PORT = int(os.getenv('ELASTIC_PORT', 9200))
 
 # Время жизни кеша
-FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5  # 5 минут
+CACHE_EXPIRE_IN_SECONDS = 60 * 5  # 5 минут
 
 # Корень проекта
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

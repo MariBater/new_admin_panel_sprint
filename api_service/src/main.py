@@ -16,6 +16,7 @@ from db import redis as redis_db
 logging_config.dictConfig(LOGGING)
 app_logger = logging.getLogger(__name__)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -31,7 +32,9 @@ async def lifespan(app: FastAPI):
     try:
         app_logger.info("Attempting to connect to Elasticsearch...")
         elastic_db.es = AsyncElasticsearch(
-            hosts=[f'{config.ELASTIC_SCHEMA}{config.ELASTIC_HOST}:{config.ELASTIC_PORT}'],
+            hosts=[
+                f'{config.ELASTIC_SCHEMA}{config.ELASTIC_HOST}:{config.ELASTIC_PORT}'
+            ],
         )
         await elastic_db.es.info()
         app_logger.info("Successfully connected to Elasticsearch.")

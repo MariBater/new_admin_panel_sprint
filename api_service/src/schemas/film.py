@@ -1,21 +1,18 @@
 from typing import List
-from pydantic import BaseModel
-from .genre import Genre
-from .person import Person
+from pydantic import BaseModel, UUID4
+from schemas.genre import Genre
+from schemas.person import Person
 
 
 class Film(BaseModel):
-    id: str
+    uuid: UUID4
     title: str
     imdb_rating: float
 
 
 class FilmExtended(Film):
     description: str
-    directors_names: List[str]
-    actors_names: List[str]
-    writers_names: List[str]
+    genre: List[Genre]
     actors: List[Person]
     writers: List[Person]
     directors: List[Person]
-    genres: List[Genre]
