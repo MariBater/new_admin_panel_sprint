@@ -5,7 +5,7 @@ import hashlib
 from pydantic import BaseModel
 from redis.asyncio import Redis
 
-from core.config import CACHE_EXPIRE_IN_SECONDS
+from core.config import settings
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -42,14 +42,14 @@ def redis_cache(
                     await redis.set(
                         cache_key,
                         result.model_dump_json(),
-                        ex=CACHE_EXPIRE_IN_SECONDS,
+                        ex=settings.CACHE_EXPIRE_IN_SECONDS,
                     )
                 else:
                     data_to_cache = [item.model_dump() for item in result]
                     await redis.set(
                         cache_key,
                         json.dumps(data_to_cache, default=str),
-                        ex=CACHE_EXPIRE_IN_SECONDS,
+                        ex=settings.CACHE_EXPIRE_IN_SECONDS,
                     )
             return result
 

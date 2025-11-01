@@ -1,22 +1,29 @@
 import os
 from dotenv import load_dotenv
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 load_dotenv()
 
-# Название проекта. Используется в Swagger-документации
-PROJECT_NAME = os.getenv('PROJECT_NAME', 'movies')
 
-# Настройки Redis
-REDIS_HOST = os.getenv('REDIS_HOST', '127.0.0.1')
-REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=f'.env', env_file_encoding='utf-8')
 
-# Настройки Elasticsearch
-ELASTIC_SCHEMA = os.getenv('ELASTIC_SCHEMA', 'http://')
-ELASTIC_HOST = os.getenv('ELASTIC_HOST', '127.0.0.1')
-ELASTIC_PORT = int(os.getenv('ELASTIC_PORT', 9200))
+    # Название проекта. Используется в Swagger-документации
+    PROJECT_NAME: str = Field('movies', alias='PROJECT_NAME')
 
-# Время жизни кеша
-CACHE_EXPIRE_IN_SECONDS = 60 * 5  # 5 минут
+    # Redis
+    REDIS_HOST: str = Field('127.0.0.1', alias='REDIS_HOST')
+    REDIS_PORT: int = Field(6379, alias='REDIS_PORT')
 
-# Корень проекта
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Elasticsearch
+    ELASTIC_SCHEMA: str = Field('http://', alias='ELASTIC_SCHEMA')
+    ELASTIC_HOST: str = Field('127.0.0.1', alias='ELASTIC_HOST')
+    ELASTIC_PORT: int = Field(9200, alias='ELASTIC_PORT')
+
+    # Время жизни кеша
+    CACHE_EXPIRE_IN_SECONDS: int = 300
+
+
+settings = Settings()

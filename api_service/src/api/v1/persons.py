@@ -1,7 +1,7 @@
 from http import HTTPStatus
-from typing import List, Optional
+from typing import Annotated, List
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from services.person import PersonService, get_person_service
 from schemas.film import Film
 from schemas.person import PersonExtended, map_person_films
@@ -11,9 +11,9 @@ router = APIRouter()
 
 @router.get("/search", summary='Поиск по персонам', response_model=List[PersonExtended])
 async def person_search(
-    query: Optional[str],
-    page_number: int = 1,
-    page_size: int = 50,
+    query: str | None = None,
+    page_number: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=50)] = 50,
     person_service: PersonService = Depends(get_person_service),
 ) -> List[PersonExtended]:
     (persons, person_film_list) = await person_service.search_by_persons(

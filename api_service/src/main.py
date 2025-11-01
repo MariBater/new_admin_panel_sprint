@@ -8,7 +8,7 @@ from fastapi.responses import ORJSONResponse
 from redis.asyncio import Redis
 
 from api.v1 import films, genres, persons
-from core import config
+from core.config import settings
 from core.logger import LOGGING
 from db import elastic as elastic_db
 from db import redis as redis_db
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     # Startup
     try:
         app_logger.info("Attempting to connect to Redis...")
-        redis_db.redis = Redis(host=config.REDIS_HOST, port=config.REDIS_PORT)
+        redis_db.redis = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT)
         await redis_db.redis.ping()
         app_logger.info("Successfully connected to Redis.")
     except Exception as e:
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
         app_logger.info("Attempting to connect to Elasticsearch...")
         elastic_db.es = AsyncElasticsearch(
             hosts=[
-                f'{config.ELASTIC_SCHEMA}{config.ELASTIC_HOST}:{config.ELASTIC_PORT}'
+                f'{settings.ELASTIC_SCHEMA}{settings.ELASTIC_HOST}:{settings.ELASTIC_PORT}'
             ],
         )
         await elastic_db.es.info()
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=config.PROJECT_NAME,
+    title=settings.PROJECT_NAME,
     docs_url='/api/openapi',
     openapi_url='/api/openapi.json',
     default_response_class=ORJSONResponse,
