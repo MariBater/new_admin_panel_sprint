@@ -1,20 +1,13 @@
-# 1. Базовый образ
-FROM python:3.11-slim
+FROM python:3.10
 
-# 2. Устанавливаем переменные окружения
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-
-# 3. Устанавливаем рабочую директорию
 WORKDIR /app
 
-# 4. Устанавливаем зависимости
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Копируем исходный код проекта
-COPY ./src ./src
+RUN  pip install --upgrade pip & pip install --no-cache-dir -r requirements.txt
 
-# 6. Копируем и делаем исполняемым скрипт ожидания
-COPY wait-for-it.sh .
-RUN chmod +x wait-for-it.sh
+COPY src/ .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
