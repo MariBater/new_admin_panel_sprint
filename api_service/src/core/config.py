@@ -18,9 +18,9 @@ class Settings(BaseSettings):
     REDIS_PORT: int = Field(6379, alias='REDIS_PORT')
 
     # Elasticsearch
-    ELASTIC_SCHEMA: str = Field('http://', alias='ELASTIC_SCHEMA')
+    #  ELASTIC_SCHEMA: str = Field('http://', alias='ELASTIC_SCHEMA')
     ELASTIC_HOST: str = Field('127.0.0.1', alias='ELASTIC_HOST')
-    ELASTIC_PORT: int = Field(9200, alias='ELASTIC_PORT')
+    #   ELASTIC_PORT: int = Field(9200, alias='ELASTIC_PORT')
 
     # Время жизни кеша
     CACHE_EXPIRE_IN_SECONDS: int = 300
