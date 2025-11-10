@@ -16,11 +16,14 @@ async def person_search(
     page_size: Annotated[int, Query(ge=1, le=50)] = 50,
     person_service: PersonService = Depends(get_person_service),
 ) -> List[PersonExtended]:
-    (persons, person_film_list) = await person_service.search_by_persons(
-        query, page_number, page_size
+    search_person_details = await person_service.search_by_persons(
+        query=query, page_number=page_number, page_size=page_size
     )
 
-    finded_person_list = [map_person_films(p, person_film_list) for p in persons]
+    finded_person_list = [
+        map_person_films(p, search_person_details.films)
+        for p in search_person_details.persons
+    ]
 
     return finded_person_list
 
@@ -32,11 +35,11 @@ async def person_details(
     person_id: str,
     person_service: PersonService = Depends(get_person_service),
 ) -> PersonExtended:
-    (person, person_film_list) = await person_service.get_person_details(person_id)
-    if not person:
+    person_details = await person_service.get_person_details(person_id=person_id)
+    if not person_details:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='person not found')
 
-    return map_person_films(person, person_film_list)
+    return map_person_films(person_details.person, person_details.films)
 
 
 @router.get("/{person_id}/film", summary='Фильмы по персоне', response_model=List[Film])
@@ -44,7 +47,7 @@ async def person_film(
     person_id: str,
     person_service: PersonService = Depends(get_person_service),
 ):
-    person_film_list = await person_service.get_person_film(person_id)
+    person_film_list = await person_service.get_person_film(person_id=person_id)
     return [
         Film(uuid=uuid.UUID(film.id), title=film.title, imdb_rating=film.imdb_rating)
         for film in person_film_list
