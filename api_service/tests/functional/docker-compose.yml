@@ -22,7 +22,7 @@ services:
       sh -c "pip install -r functional/requirements_test.txt
       && python3 functional/utils/wait_for_es.py
       && python3 functional/utils/wait_for_redis.py
-      && python3 -m pytest functional/src/test_film.py"
+      && python3 -m pytest functional/src"
     depends_on:
       - api-service
 
