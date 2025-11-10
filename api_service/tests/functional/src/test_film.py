@@ -13,6 +13,7 @@ from functional.testdata.films import generate_films
 @pytest.mark.asyncio
 async def test_search(make_get_request, es_write_data, query_data, expected_answer):
 
+    api_path = '/api/v1/films/search'
     # 1. Генерируем данные для ES
     films = generate_films()
     bulk_query = [
@@ -23,7 +24,7 @@ async def test_search(make_get_request, es_write_data, query_data, expected_answ
     await es_write_data(bulk_query)
 
     # 3. Запрашиваем данные из ES по API
-    body, headers, status = await make_get_request(query_data)
+    body, headers, status = await make_get_request(api_path, query_data)
 
     # 4. Проверяем ответ
     assert status == expected_answer["status"]
