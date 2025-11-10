@@ -1,8 +1,11 @@
 from functools import lru_cache
-from elasticsearch import AsyncElasticsearch, NotFoundError
+from typing import List
+from elasticsearch import AsyncElasticsearch
 from fastapi import Depends
 from redis import Redis
+from models.person_details import PersonDetails, SearchPersonsDetails
 from services.caching import redis_cache
+from repositories.person_repository import ElasticPersonRepository
 from db.elastic import get_elastic
 from db.redis import get_redis
 from models.film import FilmExtended
@@ -11,107 +14,44 @@ from models.person import Person
 
 class PersonService:
 
-    def __init__(self, redis: Redis, elastic: AsyncElasticsearch):
+    def __init__(self, redis: Redis, person_repository: ElasticPersonRepository):
         self.redis = redis
-        self.elastic = elastic
+        self.person_repository = person_repository
 
-    async def get_person_details(
-        self, person_id: str
-    ) -> tuple[Person | None, list[FilmExtended]]:
-        person = await self._get_person_from_elastic(person_id=person_id)
-        person_films_list = await self._get_film_by_person_ids(person_ids=[person_id])
+    @redis_cache(key_prefix="person_details", model=PersonDetails, single_item=True)
+    async def get_person_details(self, person_id: str) -> PersonDetails | None:
+        person = await self.person_repository.get_by_id(person_id=person_id)
+        person_films_List = await self.person_repository.get_film_by_person_ids(
+            person_ids=[person_id]
+        )
 
         if not person:
-            return None, []
+            return None
 
-        return person, person_films_list
+        return PersonDetails(person=person, films=person_films_List)
 
-    async def get_person_film(self, person_id: str) -> list[FilmExtended]:
-        return await self._get_film_by_person_ids(person_ids=[person_id])
+    @redis_cache(key_prefix="films_by_persons", model=FilmExtended)
+    async def get_person_film(self, person_id: str) -> List[FilmExtended]:
+        return await self.person_repository.get_film_by_person_ids(
+            person_ids=[person_id]
+        )
 
+    @redis_cache(
+        key_prefix="search_persons", model=SearchPersonsDetails, single_item=True
+    )
     async def search_by_persons(
         self, query: str | None, page_number: int = 1, page_size: int = 50
-    ) -> tuple[list[Person], list[FilmExtended]]:
-        persons_list = await self._search_persons_from_elastic(
+    ) -> SearchPersonsDetails:
+        persons_List = await self.person_repository.search_persons(
             query=query, page_number=page_number, page_size=page_size
         )
 
-        person_ids = [p.id for p in persons_list]
-        films_list = await self._get_film_by_person_ids(person_ids=person_ids)
-
-        return persons_list, films_list
-
-    @redis_cache(key_prefix="person", model=Person, single_item=True)
-    async def _get_person_from_elastic(self, person_id: str) -> Person | None:
-        try:
-            doc = await self.elastic.get(index="persons", id=person_id)
-            return Person(**doc["_source"])
-        except NotFoundError:
-            return None
-
-    @redis_cache(key_prefix="films_by_persons", model=FilmExtended)
-    async def _get_film_by_person_ids(
-        self, person_ids: list[str]
-    ) -> list[FilmExtended]:
-
-        if not person_ids:
-            return []
-
-        query = {
-            "query": {
-                "bool": {
-                    "should": [
-                        {
-                            "nested": {
-                                "path": "directors",
-                                "query": {"terms": {"directors.id": person_ids}},
-                            }
-                        },
-                        {
-                            "nested": {
-                                "path": "actors",
-                                "query": {"terms": {"actors.id": person_ids}},
-                            }
-                        },
-                        {
-                            "nested": {
-                                "path": "writers",
-                                "query": {"terms": {"writers.id": person_ids}},
-                            }
-                        },
-                    ]
-                }
-            }
-        }
-
-        try:
-            response = await self.elastic.search(index="movies", body=query)
-            return [
-                FilmExtended(**item["_source"]) for item in response["hits"]["hits"]
-            ]
-        except NotFoundError:
-            return []
-
-    @redis_cache(key_prefix="search_persons_films", model=Person)
-    async def _search_persons_from_elastic(
-        self, query: str | None, page_number: int = 1, page_size: int = 50
-    ) -> list[Person]:
-        query_body = (
-            {"match_all": {}}
-            if not query
-            else {"multi_match": {"query": query, "fields": ["full_name"]}}
+        person_ids = [p.id for p in persons_List]
+        films_List = await self.person_repository.get_film_by_person_ids(
+            person_ids=person_ids
         )
-        body = {
-            "query": query_body,
-            "from": (page_number - 1) * page_size,
-            "size": page_size,
-        }
 
-        try:
-            response = await self.elastic.search(index="persons", body=body)
-            return [Person(**item["_source"]) for item in response["hits"]["hits"]]
-        except NotFoundError:
-            return []
+        return SearchPersonsDetails(persons=persons_List, films=films_List)
 
 
 @lru_cache()
@@ -119,4 +59,5 @@ def get_person_service(
     redis: Redis = Depends(get_redis),
     elastic: AsyncElasticsearch = Depends(get_elastic),
 ) -> PersonService:
-    return PersonService(redis, elastic)
+    person_repository = ElasticPersonRepository(elastic)
+    return PersonService(redis, person_repository)
