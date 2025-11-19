@@ -1,3 +1,4 @@
+version: '3'
 services:
   api-service:
     build: ../../../api_service/.
@@ -31,7 +32,6 @@ services:
       && pytest src"
     depends_on:
       - api-service
-      - nginx
 
   nginx:
     image: nginx:1.27-alpine
@@ -53,6 +53,8 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     restart: always

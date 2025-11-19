@@ -6,7 +6,6 @@ from fastapi import Depends
 from redis.asyncio import Redis
 
 from repositories.film_repository import ElasticFilmRepository
-from services.cache_abc import AsyncCache
 from services.caching import redis_cache
 from db.elastic import get_elastic
 from db.redis import get_redis
@@ -15,8 +14,8 @@ from models.film import Film, FilmExtended
 
 class FilmService:
 
-    def __init__(self, cache: AsyncCache, film_repository: ElasticFilmRepository, **kwargs):
-        self.cache = cache
+    def __init__(self, redis: Redis, film_repository: ElasticFilmRepository):
+        self.redis = redis
         self.film_repository = film_repository
 
     @redis_cache(key_prefix='film_by_id', model=FilmExtended, single_item=True)
@@ -54,8 +53,4 @@ def get_film_service(
     elastic: AsyncElasticsearch = Depends(get_elastic),
 ) -> FilmService:
     film_repository = ElasticFilmRepository(elastic)
-    from .redis_cache import RedisCache
-    return FilmService(RedisCache(redis), film_repository)
-    film_repository = ElasticFilmRepository(elastic)
-    from .redis_cache import RedisCache
-    return FilmService(RedisCache(redis), film_repository)
+    return FilmService(redis, film_repository)
