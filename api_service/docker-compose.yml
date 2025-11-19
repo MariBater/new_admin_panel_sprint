@@ -21,7 +21,7 @@ services:
       - es_data:/usr/share/elasticsearch/data
 
   api:
-    build: ./api_service
+    build: .
     container_name: cinema_api
     environment:
       - REDIS_HOST=redis

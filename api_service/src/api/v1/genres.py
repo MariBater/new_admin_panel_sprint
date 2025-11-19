@@ -24,8 +24,8 @@ async def genre_details(
 @router.get("/", summary='Список жанров', response_model=List[Genre])
 async def genres(
     # Убираем все сложные зависимости и принимаем параметры напрямую, как в films.py
-    page_number: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=50)] = 50,
+    page_number: Annotated[int, Query(ge=1, description='Номер страницы')] = 1,
+    page_size: Annotated[int, Query(ge=1, le=50, description='Размер страницы')] = 50,
     genre_service: GenreService = Depends(get_genre_service),
 ) -> List[Genre]:
     """Получение списка жанров с пагинацией."""
@@ -40,9 +40,9 @@ async def genres(
 
 @router.get("/search/", summary='Поиск по жанрам', response_model=List[Genre])
 async def genre_search(
-    query: Annotated[str, Query(min_length=1)],
-    page_number: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=50)] = 50,
+    query: Annotated[str, Query(min_length=1, description='Текст для поиска')],
+    page_number: Annotated[int, Query(ge=1, description='Номер страницы')] = 1,
+    page_size: Annotated[int, Query(ge=1, le=50, description='Размер страницы')] = 50,
     genre_service: GenreService = Depends(get_genre_service),
 ) -> List[Genre]:
     """Поиск жанров по названию."""
