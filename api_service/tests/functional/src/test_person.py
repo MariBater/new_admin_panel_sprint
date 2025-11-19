@@ -1,8 +1,9 @@
 import pytest
-from functional.testdata.films import generate_films
-from functional.testdata.person import generate_persons
+import http
 
+from ..settings import indexes
 
+pytestmark = pytest.mark.asyncio
 @pytest.mark.parametrize(
     'path_param, expected_answer',
     [
@@ -20,19 +21,10 @@ from functional.testdata.person import generate_persons
         ),
     ],
 )
-@pytest.mark.asyncio
 async def test_details(make_get_request, es_write_data, path_param, expected_answer):
-    api_path = f'/api/v1/persons/{path_param["person_id"]}'
-
-    persons = generate_persons()
-    films = generate_films()
-    bulk_query = [{'_index': 'movies', '_id': f['id'], '_source': f} for f in films]
-    bulk_query.extend(
-        [{'_index': 'persons', '_id': p['id'], '_source': p} for p in persons]
-    )
-
-    # 2. Загружаем данные в ES
-    await es_write_data(bulk_query)
+    for index in indexes:
+        await es_write_data(index)
+    api_path = f'/persons/{path_param["person_id"]}'
 
     # 3. Запрашиваем данные из ES по API
     body, headers, status = await make_get_request(api_path, {})
@@ -43,42 +35,58 @@ async def test_details(make_get_request, es_write_data, path_param, expected_ans
 
 
 @pytest.mark.parametrize(
-    'query_param, expected_answer',
+    'query_data, expected_answer',
     [
+        # 1. Поиск по имени, которое точно есть
         (
             {'query': 'David'},
-            {'status': 200, 'length': 50},
+            {'status': http.HTTPStatus.OK, 'length': 1},
         ),
+        # 2. Пустой запрос (необязательный параметр) должен вернуть всех
         (
             {'query': ''},
-            {'status': 200, 'length': 50},
+            {'status': http.HTTPStatus.OK, 'length': 3},
         ),
+        # 3. Поиск по имени, которого нет
         (
             {'query': 'Qwerty'},
-            {'status': 200, 'length': 0},
+            {'status': http.HTTPStatus.OK, 'length': 0},
+        ),
+        # 4. Вывести только N записей (N=10) -> Ожидаем 1, так как в данных всего 1 David
+        (
+            {'query': 'David', 'page_size': 10},
+            {'status': http.HTTPStatus.OK, 'length': 1},
         ),
     ],
 )
-@pytest.mark.asyncio
-async def test_search(make_get_request, es_write_data, query_param, expected_answer):
-    api_path = f'/api/v1/persons/search'
-
-    persons = generate_persons()
-    films = generate_films()
-    bulk_query = [{'_index': 'movies', '_id': f['id'], '_source': f} for f in films]
-    bulk_query.extend(
-        [{'_index': 'persons', '_id': p['id'], '_source': p} for p in persons]
-    )
-
-    # 2. Загружаем данные в ES
-    await es_write_data(bulk_query)
+async def test_search(make_get_request, es_write_data, query_data, expected_answer):
+    api_path = '/persons/search'
+    for index in indexes:
+        await es_write_data(index)
 
     # 3. Запрашиваем данные из ES по API
-    body, headers, status = await make_get_request(api_path, query_param)
+    body, headers, status = await make_get_request(api_path, query_data)
 
     # 4. Проверяем ответ
-    assert status == expected_answer["status"]
-    assert len(body) == expected_answer["length"]
+    assert status == expected_answer['status']
+    if 'length' in expected_answer:
+        assert len(body) == expected_answer['length']
+
+
+async def test_person_search_cache(make_get_request, es_write_data, es_client):
+    """Тест кеширования поиска по персоналиям."""
+    api_path = '/persons/search'
+    for index in indexes:
+        await es_write_data(index)
+    query_data = {'query': 'David'}
+
+    await make_get_request(api_path, query_data)  # 1. Заполняем кеш
+    await es_client.delete(index='persons', id='b45bd7bc-2e16-46d5-b125-983d356768c0')  # 2. Удаляем из ES
+    await es_client.indices.refresh(index='persons')
+
+    cached_body, _, cached_status = await make_get_request(api_path, query_data)  # 3. Повторный запрос
+    assert cached_status == http.HTTPStatus.OK
+    assert len(cached_body) == 1  # Данные из кеша, несмотря на удаление из ES
 
 
 @pytest.mark.parametrize(
@@ -86,7 +94,7 @@ async def test_search(make_get_request, es_write_data, query_param, expected_ans
     [
         (
             {'person_id': 'b45bd7bc-2e16-46d5-b125-983d356768c0'},
-            {'status': 200, 'length': 10},
+            {'status': 200, 'length': 0},
         ),
         (
             {'person_id': '12345678-1234-1234-1234-123456789012'},
@@ -98,21 +106,12 @@ async def test_search(make_get_request, es_write_data, query_param, expected_ans
         ),
     ],
 )
-@pytest.mark.asyncio
 async def test_person_film(
     make_get_request, es_write_data, path_param, expected_answer
 ):
-    api_path = f'/api/v1/persons/{path_param["person_id"]}/film'
-
-    persons = generate_persons()
-    films = generate_films()
-    bulk_query = [{'_index': 'movies', '_id': f['id'], '_source': f} for f in films]
-    bulk_query.extend(
-        [{'_index': 'persons', '_id': p['id'], '_source': p} for p in persons]
-    )
-
-    # 2. Загружаем данные в ES
-    await es_write_data(bulk_query)
+    api_path = f'/persons/{path_param["person_id"]}/film'
+    for index in indexes:
+        await es_write_data(index)
 
     # 3. Запрашиваем данные из ES по API
     body, headers, status = await make_get_request(api_path, {})
