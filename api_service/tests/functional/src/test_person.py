@@ -1,7 +1,7 @@
 import pytest
 import http
 
-from ..settings import indexes
+from settings import person_index
 
 pytestmark = pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -22,8 +22,7 @@ pytestmark = pytest.mark.asyncio
     ],
 )
 async def test_details(make_get_request, es_write_data, path_param, expected_answer):
-    for index in indexes:
-        await es_write_data(index)
+    await es_write_data(person_index)
     api_path = f'/persons/{path_param["person_id"]}'
 
     # 3. Запрашиваем данные из ES по API
@@ -61,8 +60,7 @@ async def test_details(make_get_request, es_write_data, path_param, expected_ans
 )
 async def test_search(make_get_request, es_write_data, query_data, expected_answer):
     api_path = '/persons/search'
-    for index in indexes:
-        await es_write_data(index)
+    await es_write_data(person_index)
 
     # 3. Запрашиваем данные из ES по API
     body, headers, status = await make_get_request(api_path, query_data)
@@ -76,8 +74,7 @@ async def test_search(make_get_request, es_write_data, query_data, expected_answ
 async def test_person_search_cache(make_get_request, es_write_data, es_client):
     """Тест кеширования поиска по персоналиям."""
     api_path = '/persons/search'
-    for index in indexes:
-        await es_write_data(index)
+    await es_write_data(person_index)
     query_data = {'query': 'David'}
 
     await make_get_request(api_path, query_data)  # 1. Заполняем кеш
@@ -110,8 +107,7 @@ async def test_person_film(
     make_get_request, es_write_data, path_param, expected_answer
 ):
     api_path = f'/persons/{path_param["person_id"]}/film'
-    for index in indexes:
-        await es_write_data(index)
+    await es_write_data(person_index)
 
     # 3. Запрашиваем данные из ES по API
     body, headers, status = await make_get_request(api_path, {})

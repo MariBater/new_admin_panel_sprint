@@ -1,7 +1,7 @@
 import http
 
 import pytest
-from ..settings import indexes
+from settings import film_index
 
 pytestmark = pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -21,10 +21,8 @@ pytestmark = pytest.mark.asyncio
     ],
 )
 async def test_search(make_get_request, es_write_data, query_data, expected_answer):
-
     api_path = '/films/search'
-    for index in indexes:
-        await es_write_data(index)
+    await es_write_data(film_index)
 
     # 3. Запрашиваем данные из ES по API
     body, headers, status = await make_get_request(api_path, query_data)
@@ -38,8 +36,7 @@ async def test_search(make_get_request, es_write_data, query_data, expected_answ
 async def test_film_search_cache(make_get_request, es_write_data, es_client):
     """Тест кеширования поиска по фильмам."""
     api_path = '/films/search'
-    for index in indexes:
-        await es_write_data(index)
+    await es_write_data(film_index)
     query_data = {'query': 'The Star'}
 
     await make_get_request(api_path, query_data)  # 1. Заполняем кеш. ID фильма 'a5a8f573-3ce5-4f30-b252-9f332715b5da'
@@ -65,10 +62,8 @@ async def test_film_search_cache(make_get_request, es_write_data, es_client):
     ],
 )
 async def test_details(make_get_request, es_write_data, path_param, expected_answer):
-
     api_path = f'/films/{path_param["film_id"]}'
-    for index in indexes:
-        await es_write_data(index)
+    await es_write_data(film_index)
 
     # 3. Запрашиваем данные из ES по API
     body, headers, status = await make_get_request(api_path, {})
@@ -100,10 +95,8 @@ async def test_details(make_get_request, es_write_data, path_param, expected_ans
     ],
 )
 async def test_films(make_get_request, es_write_data, query_data, expected_answer):
-
     api_path = '/films'
-    for index in indexes:
-        await es_write_data(index)
+    await es_write_data(film_index)
 
     # 3. Запрашиваем данные из ES по API
     body, headers, status = await make_get_request(api_path, query_data)

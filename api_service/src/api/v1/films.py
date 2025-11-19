@@ -52,7 +52,7 @@ async def films(
     response_model=List[Film],
 )
 async def films_search(
-    query: Annotated[str, Query(description='Текст для поиска')],
+    query: Annotated[str, Query(description='Текст для поиска', min_length=3)],
     pagination: PaginationParams = Depends(),
     film_service: FilmService = Depends(get_film_service),
 ) -> List[Film]:

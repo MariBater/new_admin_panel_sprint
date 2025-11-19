@@ -6,7 +6,7 @@ from redis.asyncio import Redis
 from elasticsearch import AsyncElasticsearch
 from elasticsearch.helpers import async_bulk
 import pytest_asyncio
-from .settings import settings, indexes, ESIndexSettings
+from settings import settings, indexes, ESIndexSettings
 
 
 @pytest_asyncio.fixture(scope='session')
@@ -17,22 +17,27 @@ def event_loop(request):
     loop.close()
 
 
-@pytest_asyncio.fixture(name='es_client', scope='function')
+@pytest_asyncio.fixture(name='es_client', scope='session')
 async def es_client():
     client = AsyncElasticsearch(hosts=settings.es_url, verify_certs=False)
     yield client
     await client.close()
 
 
+@pytest_asyncio.fixture(name='redis_client', scope='session')
+async def redis_client():
+    client = Redis(host=settings.redis_host, port=settings.redis_port, db=0)
+    yield client
+    await client.aclose()
+
+
 @pytest_asyncio.fixture(autouse=True)
-async def clear_cache():
+async def clear_cache(redis_client):
     """Очищает кеш Redis перед каждым тестом."""
-    redis_client = Redis(host=settings.redis_host, port=settings.redis_port, db=0)
     await redis_client.flushall()
-    await redis_client.close()
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(autouse=True)
 async def es_clear_data(es_client):
     """Очищает данные в индексах перед каждым тестом."""
     for index_settings in indexes:

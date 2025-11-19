@@ -1,7 +1,7 @@
 import http
 
 import pytest
-from ..settings import genre_index
+from settings import genre_index
 
 
 @pytest.mark.parametrize(
