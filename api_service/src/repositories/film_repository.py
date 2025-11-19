@@ -1,5 +1,7 @@
 from typing import List, Protocol
 
+import backoff
+from elastic_transport import ConnectionError
 from elasticsearch import AsyncElasticsearch, NotFoundError
 
 from models.film import Film, FilmExtended
@@ -29,6 +31,7 @@ class ElasticFilmRepository:
     def __init__(self, elastic: AsyncElasticsearch):
         self.elastic = elastic
 
+    @backoff.on_exception(backoff.expo, (ConnectionError), max_time=30)
     async def get_film_by_id(self, film_id: str) -> FilmExtended | None:
         try:
             doc = await self.elastic.get(index='movies', id=film_id)
@@ -36,6 +39,7 @@ class ElasticFilmRepository:
             return None
         return FilmExtended(**doc['_source'])
 
+    @backoff.on_exception(backoff.expo, (ConnectionError), max_time=30)
     async def get_films_by_genre(
         self,
         genre: str | None = None,
@@ -82,6 +86,7 @@ class ElasticFilmRepository:
         except NotFoundError:
             return []
 
+    @backoff.on_exception(backoff.expo, (ConnectionError), max_time=30)
     async def searh_films(
         self,
         query: str,
