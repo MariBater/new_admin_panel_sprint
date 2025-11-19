@@ -3,6 +3,7 @@ from typing import Annotated, List
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from services.person import PersonService, get_person_service
+from .dependencies import PaginationParams
 from schemas.film import Film
 from schemas.person import PersonExtended, map_person_films
 
@@ -12,8 +13,7 @@ router = APIRouter()
 @router.get("/search", summary='Поиск по персонам', response_model=List[PersonExtended])
 async def person_search(
     query: Annotated[str | None, Query(description='Текст для поиска по имени')] = None,
-    page_number: Annotated[int, Query(ge=1, description='Номер страницы')] = 1,
-    page_size: Annotated[int, Query(ge=1, le=50, description='Размер страницы')] = 50,
+    pagination: PaginationParams = Depends(),
     person_service: PersonService = Depends(get_person_service),
 ) -> List[PersonExtended]:
     """
@@ -22,7 +22,9 @@ async def person_search(
     Если `query` не указан, возвращает список всех персон.
     """
     search_person_details = await person_service.search_by_persons(
-        query=query, page_number=page_number, page_size=page_size
+        query=query,
+        page_number=pagination.page_number,
+        page_size=pagination.page_size,
     )
 
     finded_person_list = [
@@ -62,4 +64,4 @@ async def person_film(
     return [
         Film(uuid=uuid.UUID(film.id), title=film.title, imdb_rating=film.imdb_rating)
         for film in person_film_list
-    ] or []
+    ]

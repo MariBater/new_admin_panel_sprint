@@ -4,6 +4,7 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from schemas.genre import Genre
+from .dependencies import PaginationParams
 from services.genre import GenreService, get_genre_service
 
 router = APIRouter()
@@ -24,15 +25,14 @@ async def genre_details(
 @router.get("/", summary='Список жанров', response_model=List[Genre])
 async def genres(
     # Убираем все сложные зависимости и принимаем параметры напрямую, как в films.py
-    page_number: Annotated[int, Query(ge=1, description='Номер страницы')] = 1,
-    page_size: Annotated[int, Query(ge=1, le=50, description='Размер страницы')] = 50,
+    pagination: PaginationParams = Depends(),
     genre_service: GenreService = Depends(get_genre_service),
 ) -> List[Genre]:
     """Получение списка жанров с пагинацией."""
     
     # Вызываем метод get_all, который точно существует в вашем сервисе
     genre_list = await genre_service.get_all(
-        page_number=page_number, page_size=page_size
+        page_number=pagination.page_number, page_size=pagination.page_size
     )
     
     return [Genre(uuid=g.id, name=g.name) for g in genre_list]
@@ -41,15 +41,14 @@ async def genres(
 @router.get("/search/", summary='Поиск по жанрам', response_model=List[Genre])
 async def genre_search(
     query: Annotated[str, Query(min_length=1, description='Текст для поиска')],
-    page_number: Annotated[int, Query(ge=1, description='Номер страницы')] = 1,
-    page_size: Annotated[int, Query(ge=1, le=50, description='Размер страницы')] = 50,
+    pagination: PaginationParams = Depends(),
     genre_service: GenreService = Depends(get_genre_service),
 ) -> List[Genre]:
     """Поиск жанров по названию."""
     
     # Предполагаем, что в GenreService есть или будет метод search
     genre_list = await genre_service.search(
-        query=query, page_number=page_number, page_size=page_size
+        query=query, page_number=pagination.page_number, page_size=pagination.page_size
     )
     
     return [Genre(uuid=g.id, name=g.name) for g in genre_list]

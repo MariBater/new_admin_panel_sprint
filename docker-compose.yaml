@@ -31,8 +31,6 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - path.repo=/mnt/backups/elasticsearch
-    ports:
-      - "9200:9200"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
       - ./elastic/elastic_backup:/mnt/backups/elasticsearch
@@ -54,8 +52,6 @@ services:
       
   redis:
     image: redis:8.2.2
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from schemas.person import Person
 from schemas.genre import Genre
 from schemas.film import Film, FilmExtended
+from .dependencies import PaginationParams
 from services.film import FilmService, get_film_service
 
 router = APIRouter()
@@ -21,8 +22,7 @@ async def films(
     sort: Annotated[
         str | None, Query(description='Сортировка по рейтингу (imdb_rating или -imdb_rating)')
     ] = None,
-    page_number: Annotated[int, Query(ge=1, description='Номер страницы')] = 1,
-    page_size: Annotated[int, Query(ge=1, le=50, description='Размер страницы')] = 50,
+    pagination: PaginationParams = Depends(),
     film_service: FilmService = Depends(get_film_service),
 ) -> List[Film]:
     """
@@ -34,7 +34,10 @@ async def films(
     """
 
     film_list = await film_service.get_all(
-        genre=genre, sort=sort, page_number=page_number, page_size=page_size
+        genre=genre,
+        sort=sort,
+        page_number=pagination.page_number,
+        page_size=pagination.page_size,
     )
 
     return [
@@ -50,8 +53,7 @@ async def films(
 )
 async def films_search(
     query: Annotated[str, Query(description='Текст для поиска')],
-    page_number: Annotated[int, Query(ge=1, description='Номер страницы')] = 1,
-    page_size: Annotated[int, Query(ge=1, le=50, description='Размер страницы')] = 50,
+    pagination: PaginationParams = Depends(),
     film_service: FilmService = Depends(get_film_service),
 ) -> List[Film]:
     """
@@ -59,7 +61,9 @@ async def films_search(
     Поиск осуществляется по названию и описанию фильма.
     """
     film_list = await film_service.search(
-        query=query, page_number=page_number, page_size=page_size
+        query=query,
+        page_number=pagination.page_number,
+        page_size=pagination.page_size,
     )
 
     return [
