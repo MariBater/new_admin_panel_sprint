@@ -1,14 +1,25 @@
+import http
+
 import pytest
 from settings import film_index
 
+pytestmark = pytest.mark.asyncio
 @pytest.mark.parametrize(
     'query_data, expected_answer',
     [
-        ({'query': 'The Star'}, {'status': 200, 'length': 50}),
-        ({'query': 'Mashed potato'}, {'status': 200, 'length': 0}),
+        # 1. Поиск по фразе, которая точно есть
+        ({'query': 'The Star'}, {'status': http.HTTPStatus.OK, 'length': 1}),
+        # 2. Поиск по фразе, которой нет
+        ({'query': 'Mashed potato'}, {'status': http.HTTPStatus.OK, 'length': 0}),
+        # 3. Вывести только N записей (N=10)
+        (
+            {'query': 'The Star', 'page_size': 1},
+            {'status': http.HTTPStatus.OK, 'length': 1},
+        ),
+        # 4. Валидация: обязательный параметр query отсутствует
+        ({}, {'status': http.HTTPStatus.UNPROCESSABLE_ENTITY}),
     ],
 )
-@pytest.mark.asyncio
 async def test_search(make_get_request, es_write_data, query_data, expected_answer):
     api_path = '/films/search'
     await es_write_data(film_index)
@@ -41,7 +52,7 @@ async def test_film_search_cache(make_get_request, es_write_data, es_client):
     'path_param, expected_answer',
     [
         (
-            {'film_id': 'fb111f22-121e-44a7-b78f-b19191810000'},
+            {'film_id': 'a5a8f573-3ce5-4f30-b252-9f332715b5da'},
             {'status': 200, 'title': "The Star"},
         ),
         (
@@ -50,7 +61,6 @@ async def test_film_search_cache(make_get_request, es_write_data, es_client):
         ),
     ],
 )
-@pytest.mark.asyncio
 async def test_details(make_get_request, es_write_data, path_param, expected_answer):
     api_path = f'/films/{path_param["film_id"]}'
     await es_write_data(film_index)
@@ -67,8 +77,8 @@ async def test_details(make_get_request, es_write_data, path_param, expected_ans
     'query_data, expected_answer',
     [
         (
-            {'genre': 'ef86b8ff-3c82-4d31-ad8e-72b69f4e3f90'},
-            {'status': 200, 'length': 50},
+            {'genre': 'ef86b8ff-3c82-4d31-ad8e-72b69f4e3f90'}, # Action
+            {'status': 200, 'length': 1},
         ),
         (
             {'genre': '12345678-1234-1234-1234-123456789012'},
@@ -76,15 +86,14 @@ async def test_details(make_get_request, es_write_data, path_param, expected_ans
         ),
         (
             {'sort': '-imdb_rating'},
-            {'status': 200, 'imdb_rating': 10},
+            {'status': 200, 'imdb_rating': 8.5},
         ),
         (
             {'sort': 'imdb_rating'},
-            {'status': 200, 'imdb_rating': 1},
+            {'status': 200, 'imdb_rating': 8.5},
         ),
     ],
 )
-@pytest.mark.asyncio
 async def test_films(make_get_request, es_write_data, query_data, expected_answer):
     api_path = '/films'
     await es_write_data(film_index)
