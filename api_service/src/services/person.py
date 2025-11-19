@@ -2,8 +2,9 @@ from functools import lru_cache
 from typing import List
 from elasticsearch import AsyncElasticsearch
 from fastapi import Depends
-from redis import Redis
+from redis.asyncio import Redis
 from models.person_details import PersonDetails, SearchPersonsDetails
+from services.cache_abc import AsyncCache
 from services.caching import redis_cache
 from repositories.person_repository import ElasticPersonRepository
 from db.elastic import get_elastic
@@ -14,8 +15,8 @@ from models.person import Person
 
 class PersonService:
 
-    def __init__(self, redis: Redis, person_repository: ElasticPersonRepository):
-        self.redis = redis
+    def __init__(self, cache: AsyncCache, person_repository: ElasticPersonRepository, **kwargs):
+        self.cache = cache
         self.person_repository = person_repository
 
     @redis_cache(key_prefix="person_details", model=PersonDetails, single_item=True)
@@ -60,4 +61,8 @@ def get_person_service(
     elastic: AsyncElasticsearch = Depends(get_elastic),
 ) -> PersonService:
     person_repository = ElasticPersonRepository(elastic)
-    return PersonService(redis, person_repository)
+    from .redis_cache import RedisCache
+    return PersonService(RedisCache(redis), person_repository)
+    person_repository = ElasticPersonRepository(elastic)
+    from .redis_cache import RedisCache
+    return PersonService(RedisCache(redis), person_repository)

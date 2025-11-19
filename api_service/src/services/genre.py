@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import List
 from elasticsearch import AsyncElasticsearch
 from fastapi import Depends
-from redis import Redis
+from redis.asyncio import Redis
 from repositories.genre_repository import (
     ElasticGenreRepository,
     GenreRepository,
@@ -11,12 +11,13 @@ from services.caching import redis_cache
 from models.genre import Genre
 from db.elastic import get_elastic
 from db.redis import get_redis
+from .cache_abc import AsyncCache
 
 
 class GenreService:
 
-    def __init__(self, redis: Redis, genre_repository: GenreRepository):
-        self.redis = redis
+    def __init__(self, cache: AsyncCache, genre_repository: GenreRepository, **kwargs):
+        self.cache = cache
         self.genre_repository = genre_repository
 
     @redis_cache(key_prefix='genre_by_id', model=Genre, single_item=True)
@@ -50,4 +51,9 @@ def get_genre_service(
     elastic: AsyncElasticsearch = Depends(get_elastic),
 ) -> GenreService:
     genre_repository = ElasticGenreRepository(elastic)
-    return GenreService(redis, genre_repository)
+    from .redis_cache import RedisCache
+    # Оборачиваем его в нашу реализацию и передаем в сервис как абстракцию
+    return GenreService(RedisCache(redis), genre_repository)
+    genre_repository = ElasticGenreRepository(elastic)
+    from .redis_cache import RedisCache
+    return GenreService(RedisCache(redis), genre_repository)
