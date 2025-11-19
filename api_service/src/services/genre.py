@@ -24,8 +24,24 @@ class GenreService:
         return await self.genre_repository.get_by_id(genre_id=genre_id)
 
     @redis_cache(key_prefix='genre_list', model=Genre)
-    async def get_all(self) -> List[Genre]:
-        return await self.genre_repository.get_all()
+    async def get_all(
+        self, page_number: int = 1, page_size: int = 50
+    ) -> List[Genre]:
+        return await self.genre_repository.get_all(
+            page_number=page_number, page_size=page_size
+        )
+
+    @redis_cache(key_prefix='search_genre_list', model=Genre)
+    async def search(
+        self,
+        query: str,
+        page_number: int = 1,
+        page_size: int = 50,
+    ) -> List[Genre]:
+        # Предполагаем, что в репозитории будет метод search
+        return await self.genre_repository.search(
+            query=query, page_number=page_number, page_size=page_size
+        )
 
 
 @lru_cache()

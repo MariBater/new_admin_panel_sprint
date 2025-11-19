@@ -45,7 +45,7 @@ def redis_cache(
                         ex=settings.CACHE_EXPIRE_IN_SECONDS,
                     )
                 else:
-                    data_to_cache = [item.model_dump() for item in result]
+                    data_to_cache = [item.model_dump(mode='json') for item in result]
                     await redis.set(
                         cache_key,
                         json.dumps(data_to_cache, default=str),

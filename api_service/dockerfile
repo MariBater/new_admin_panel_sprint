@@ -1,18 +1,33 @@
-# 1. Используем официальный образ Python
-FROM python:3.11-slim
+FROM python:3.11-slim AS base
 
-# 2. Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app
 
-# 3. Устанавливаем переменную окружения, чтобы Python не буферизировал stdout и stderr
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# --- Этап сборки зависимостей ---
+FROM base AS builder
 
-# 4. Копируем файл с зависимостями и устанавливаем их
 COPY requirements.txt .
+RUN pip install --upgrade pip \
+    && pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
 
-# 5. Копируем исходный код нашего приложения
-COPY ./src ./src
+# --- Финальный этап для продакшена ---
+FROM base AS prod
 
-# 6. Указываем команду для запуска приложения
-CMD /bin/sh -c "sleep 10 && uvicorn src.main:app --host 0.0.0.0 --port 8000"
+ENV PYTHONPATH=/app/src
+
+# Add the user's local bin directory to the PATH.
+ENV PATH=/home/appuser/.local/bin:$PATH
+
+RUN useradd --create-home appuser
+USER appuser
+
+WORKDIR /app/src
+
+COPY --from=builder /app/wheels /wheels
+COPY --from=builder /app/requirements.txt .
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt
+
+COPY ./src .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

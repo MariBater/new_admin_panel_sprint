@@ -1,68 +1,84 @@
 import asyncio
 import json
-from pathlib import Path
+
 import aiohttp
+from redis.asyncio import Redis
 from elasticsearch import AsyncElasticsearch
 from elasticsearch.helpers import async_bulk
 import pytest_asyncio
-from functional.settings import test_settings
+from .settings import settings, indexes, ESIndexSettings
 
 
 @pytest_asyncio.fixture(scope='session')
-async def aiohttp_session():
-    session = aiohttp.ClientSession()
-    yield session
-    await session.close()
-
-
-@pytest_asyncio.fixture(scope='session')
-def event_loop():
-    loop = asyncio.get_event_loop()
+def event_loop(request):
+    """Create an instance of the default event loop for each test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
 
 
-@pytest_asyncio.fixture(name='es_client', scope='session')
+@pytest_asyncio.fixture(name='es_client', scope='function')
 async def es_client():
-    es_client = AsyncElasticsearch(hosts=test_settings.es_host, verify_certs=False)
-    yield es_client
-    await es_client.close()
+    client = AsyncElasticsearch(hosts=settings.es_url, verify_certs=False)
+    yield client
+    await client.close()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def clear_cache():
+    """Очищает кеш Redis перед каждым тестом."""
+    redis_client = Redis(host=settings.redis_host, port=settings.redis_port, db=0)
+    await redis_client.flushall()
+    await redis_client.close()
+
+
+@pytest_asyncio.fixture
+async def es_clear_data(es_client):
+    """Очищает данные в индексах перед каждым тестом."""
+    for index_settings in indexes:
+        if await es_client.indices.exists(index=index_settings.index_name):
+            await es_client.delete_by_query(index=index_settings.index_name, query={"match_all": {}})
+    yield
 
 
 @pytest_asyncio.fixture(name='es_write_data')
 async def es_write_data(es_client):
-    async def inner(data: list[dict]):
-        schema_path = Path(__file__).parent / "elastic_schema.json"
-        with open(schema_path, "r", encoding="utf-8") as f:
-            es_schema = json.load(f)
+    async def inner(data: list[dict] | ESIndexSettings):
+        bulk_query = []
+        if isinstance(data, ESIndexSettings):
+            with open(data.data_file_path) as f:
+                docs = json.load(f)
+            for doc in docs:
+                bulk_query.append({'_index': data.index_name, '_id': doc['id'], '_source': doc})
 
-            for index_name, schema in es_schema.items():
-                if await es_client.indices.exists(index=index_name):
-                    await es_client.indices.delete(index=index_name)
+            # Ensure index exists before writing
+            if not await es_client.indices.exists(index=data.index_name):
+                with open(data.schema_file_path) as f:
+                    schema = json.load(f)
+                await es_client.indices.create(index=data.index_name, mappings=schema.get('mappings'), settings=schema.get('settings'))
 
-                await es_client.indices.create(index=index_name, **schema)
+        else:
+            bulk_query = data
 
-            updated, errors = await async_bulk(client=es_client, actions=data)
-
-            for index_name, schema in es_schema.items():
-                await es_client.indices.refresh(index=index_name)
-            await es_client.close()
-
+        updated, errors = await async_bulk(client=es_client, actions=bulk_query)
         if errors:
             raise Exception('Ошибка записи данных в Elasticsearch')
-
+        await es_client.indices.refresh(index='_all')
     return inner
 
 
 @pytest_asyncio.fixture(name='make_get_request')
-def make_get_request(aiohttp_session):
+async def make_get_request():
 
-    async def inner(path: str, data: dict):
-        url = test_settings.service_url + path
-        async with aiohttp_session.get(url, params=data) as response:
-            body = await response.json()
-            headers = response.headers
-            status = response.status
-        return body, headers, status
-
-    return inner
+    async with aiohttp.ClientSession() as session:
+        async def inner(path: str, data: dict = None):
+            url = settings.api_base_url + path
+            async with session.get(url, params=data) as response:
+                try:
+                    body = await response.json()
+                except aiohttp.client_exceptions.ContentTypeError:
+                    body = await response.text()
+                headers = response.headers
+                status = response.status
+            return body, headers, status
+        yield inner

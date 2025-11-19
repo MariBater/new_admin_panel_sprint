@@ -31,9 +31,7 @@ async def lifespan(app: FastAPI):
         # raise
     try:
         app_logger.info("Attempting to connect to Elasticsearch...")
-        elastic_db.es = AsyncElasticsearch(
-            hosts=[settings.ELASTIC_HOST],
-        )
+        elastic_db.es = AsyncElasticsearch(settings.ELASTIC_HOST)
         await elastic_db.es.info()
         app_logger.info("Successfully connected to Elasticsearch.")
     except Exception as e:
