@@ -30,9 +30,7 @@ class ElasticGenreRepository:
             return None
         return Genre(**doc['_source'])
 
-    async def get_all(
-        self, page_number: int = 1, page_size: int = 50
-    ) -> List[Genre]:
+    async def get_all(self, page_number: int = 1, page_size: int = 50) -> List[Genre]:
         try:
             from_ = (page_number - 1) * page_size
             body = {
@@ -44,7 +42,7 @@ class ElasticGenreRepository:
             return [
                 Genre(**item["_source"]) for item in elastic_response["hits"]["hits"]
             ]
-        except Exception:  # Ловим любую ошибку от Elasticsearch (включая выход за пределы окна)
+        except Exception:
             return []
 
     async def search(
@@ -55,7 +53,8 @@ class ElasticGenreRepository:
             body = {
                 "query": {
                     "query_string": {
-                        "query": f"*{query}*", "fields": ["name", "description"]
+                        "query": f"*{query}*",
+                        "fields": ["name", "description"],
                     }
                 },
                 "from": from_,

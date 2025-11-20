@@ -12,6 +12,7 @@ from models.genre import Genre
 from db.elastic import get_elastic
 from db.redis import get_redis
 from .cache_abc import AsyncCache
+from .redis_cache import RedisCache
 
 
 class GenreService:
@@ -25,9 +26,7 @@ class GenreService:
         return await self.genre_repository.get_by_id(genre_id=genre_id)
 
     @redis_cache(key_prefix='genre_list', model=Genre)
-    async def get_all(
-        self, page_number: int = 1, page_size: int = 50
-    ) -> List[Genre]:
+    async def get_all(self, page_number: int = 1, page_size: int = 50) -> List[Genre]:
         return await self.genre_repository.get_all(
             page_number=page_number, page_size=page_size
         )
@@ -51,9 +50,5 @@ def get_genre_service(
     elastic: AsyncElasticsearch = Depends(get_elastic),
 ) -> GenreService:
     genre_repository = ElasticGenreRepository(elastic)
-    from .redis_cache import RedisCache
-    # Оборачиваем его в нашу реализацию и передаем в сервис как абстракцию
-    return GenreService(RedisCache(redis), genre_repository)
-    genre_repository = ElasticGenreRepository(elastic)
-    from .redis_cache import RedisCache
+
     return GenreService(RedisCache(redis), genre_repository)

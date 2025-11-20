@@ -10,12 +10,14 @@ from repositories.person_repository import ElasticPersonRepository
 from db.elastic import get_elastic
 from db.redis import get_redis
 from models.film import FilmExtended
-from models.person import Person
+from .redis_cache import RedisCache
 
 
 class PersonService:
 
-    def __init__(self, cache: AsyncCache, person_repository: ElasticPersonRepository, **kwargs):
+    def __init__(
+        self, cache: AsyncCache, person_repository: ElasticPersonRepository, **kwargs
+    ):
         self.cache = cache
         self.person_repository = person_repository
 
@@ -61,8 +63,4 @@ def get_person_service(
     elastic: AsyncElasticsearch = Depends(get_elastic),
 ) -> PersonService:
     person_repository = ElasticPersonRepository(elastic)
-    from .redis_cache import RedisCache
-    return PersonService(RedisCache(redis), person_repository)
-    person_repository = ElasticPersonRepository(elastic)
-    from .redis_cache import RedisCache
     return PersonService(RedisCache(redis), person_repository)
