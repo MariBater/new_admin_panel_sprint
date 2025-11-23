@@ -6,8 +6,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).parent.resolve()
 TESTDATA_DIR = BASE_DIR / 'testdata'
 
+
 class CommonSettings(BaseSettings):
     """Общие настройки, для всех тестов."""
+
     model_config = SettingsConfigDict(env_file='.env', extra='ignore')
 
     es_host: str = Field(default='127.0.0.1', alias='ES_HOST')
@@ -35,6 +37,7 @@ class CommonSettings(BaseSettings):
 
 class ESIndexSettings(BaseModel):
     """Модель настроек, для конкретного индекса."""
+
     index_name: str
     schema_file_path: Path
     data_file_path: Path
@@ -45,19 +48,19 @@ settings = CommonSettings()
 film_index = ESIndexSettings(
     index_name='movies',
     schema_file_path=TESTDATA_DIR / 'es_schema_movies.json',
-    data_file_path=TESTDATA_DIR / 'movies.json'
+    data_file_path=TESTDATA_DIR / 'movies.json',
 )
 
 genre_index = ESIndexSettings(
     index_name='genres',
     schema_file_path=TESTDATA_DIR / 'es_schema_genres.json',
-    data_file_path=TESTDATA_DIR / 'genres.json'
+    data_file_path=TESTDATA_DIR / 'genres.json',
 )
 
 person_index = ESIndexSettings(
     index_name='persons',
     schema_file_path=TESTDATA_DIR / 'es_schema_persons.json',
-    data_file_path=TESTDATA_DIR / 'persons.json'
+    data_file_path=TESTDATA_DIR / 'persons.json',
 )
 
 indexes = [

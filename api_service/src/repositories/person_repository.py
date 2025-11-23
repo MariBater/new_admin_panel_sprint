@@ -1,6 +1,8 @@
 from typing import List, Protocol
 
+import backoff
 from elasticsearch import AsyncElasticsearch, NotFoundError
+from elastic_transport import ConnectionError
 
 from models.film import FilmExtended
 from models.person import Person
@@ -21,7 +23,7 @@ class ElasticPersonRepository:
     def __init__(self, elastic: AsyncElasticsearch):
         self.elastic = elastic
 
-    # @redis_cache(key_prefix="person", model=Person, single_item=True)
+    @backoff.on_exception(backoff.expo, (ConnectionError), max_time=30)
     async def get_by_id(self, person_id: str) -> Person | None:
         try:
             doc = await self.elastic.get(index="persons", id=person_id)
@@ -29,6 +31,7 @@ class ElasticPersonRepository:
         except NotFoundError:
             return None
 
+    @backoff.on_exception(backoff.expo, (ConnectionError), max_time=30)
     async def get_film_by_person_ids(self, person_ids: List[str]) -> List[FilmExtended]:
 
         if not person_ids:
@@ -69,7 +72,7 @@ class ElasticPersonRepository:
         except NotFoundError:
             return []
 
-    #  @redis_cache(key_prefix="search_persons_films", model=Person)
+    @backoff.on_exception(backoff.expo, (ConnectionError), max_time=30)
     async def search_persons(
         self, query: str | None, page_number: int = 1, page_size: int = 50
     ) -> List[Person]:

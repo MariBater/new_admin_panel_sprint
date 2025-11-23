@@ -6,7 +6,7 @@ from redis.asyncio import Redis
 from models.person_details import PersonDetails, SearchPersonsDetails
 from services.cache_abc import AsyncCache
 from services.caching import redis_cache
-from repositories.person_repository import ElasticPersonRepository
+from repositories.person_repository import ElasticPersonRepository, PersonRepository
 from db.elastic import get_elastic
 from db.redis import get_redis
 from models.film import FilmExtended
@@ -16,7 +16,7 @@ from .redis_cache import RedisCache
 class PersonService:
 
     def __init__(
-        self, cache: AsyncCache, person_repository: ElasticPersonRepository, **kwargs
+        self, cache: AsyncCache, person_repository: PersonRepository, **kwargs
     ):
         self.cache = cache
         self.person_repository = person_repository

@@ -1,7 +1,8 @@
 from typing import List, Protocol
 
+import backoff
 from elasticsearch import AsyncElasticsearch, NotFoundError
-
+from elastic_transport import ConnectionError
 from models.genre import Genre
 
 
@@ -23,6 +24,7 @@ class ElasticGenreRepository:
     def __init__(self, elastic: AsyncElasticsearch):
         self.elastic = elastic
 
+    @backoff.on_exception(backoff.expo, (ConnectionError), max_time=30)
     async def get_by_id(self, genre_id) -> Genre | None:
         try:
             doc = await self.elastic.get(index='genres', id=genre_id)
@@ -30,6 +32,7 @@ class ElasticGenreRepository:
             return None
         return Genre(**doc['_source'])
 
+    @backoff.on_exception(backoff.expo, (ConnectionError), max_time=30)
     async def get_all(self, page_number: int = 1, page_size: int = 50) -> List[Genre]:
         try:
             from_ = (page_number - 1) * page_size
@@ -45,6 +48,7 @@ class ElasticGenreRepository:
         except Exception:
             return []
 
+    @backoff.on_exception(backoff.expo, (ConnectionError), max_time=30)
     async def search(
         self, query: str, page_number: int = 1, page_size: int = 50
     ) -> List[Genre]:

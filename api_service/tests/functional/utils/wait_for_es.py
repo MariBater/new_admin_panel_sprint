@@ -1,10 +1,18 @@
-import time
+import backoff
 from elasticsearch import Elasticsearch
+
 from settings import settings
 
-if __name__ == '__main__':
+
+@backoff.on_exception(backoff.expo, (ConnectionError, Exception), max_time=30)
+def wait_for_es():
     es_client = Elasticsearch(hosts=settings.es_url)
-    while True:
-        if es_client.ping():
-            break
-        time.sleep(1)
+    try:
+        if not es_client.ping():
+            raise ConnectionError
+    finally:
+        es_client.close()
+
+
+if __name__ == '__main__':
+    wait_for_es()
