@@ -10,6 +10,19 @@ services:
         condition: service_healthy
     restart: always
 
+  auth-service:
+    build: ./auth_service/.
+    env_file:
+       - ./auth_service/.env
+    ports:
+      - "8001:8001"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+
   nginx:
     image: nginx:1.27-alpine
     volumes:
@@ -62,6 +75,25 @@ services:
       timeout: 3s
       retries: 5
 
+  auth-db:
+    image: postgres:17
+    env_file:
+       - ./auth_service/.env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      retries: 20
+    restart: always
+
 volumes:
   elasticsearch_data:
   redis_data:
+  postgres_data:
