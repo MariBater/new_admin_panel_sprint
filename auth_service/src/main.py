@@ -8,11 +8,11 @@ from redis import Redis
 from sqlalchemy import text
 
 
-from api.v1 import auth, roles
-from core.logger import LOGGING
-from core.config import settings
-from db import redis as redis_db
-from db import postgres as posrgres_db
+from src.api.v1 import auth, roles
+from src.core.logger import LOGGING
+from src.core.config import settings
+from src.db import redis as redis_db
+from src.db import postgres as posrgres_db
 
 
 logging_config.dictConfig(LOGGING)

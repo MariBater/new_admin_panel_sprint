@@ -1,8 +1,8 @@
 import typer
 import asyncio
 from sqlalchemy import select
-from models.entity import User
-from postgres import create_database, get_session
+from src.models.entity import User
+from src.db.postgres import create_database, get_session
 
 app = typer.Typer()
 

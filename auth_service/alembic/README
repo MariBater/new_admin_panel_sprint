@@ -1,0 +1,22 @@
+Создание первой миграции (init): (УЖЕ СДЕЛАНО)
+docker-compose exec auth-service alembic revision --autogenerate -m "init"
+docker-compose exec auth-service alembic stamp head
+
+Если потом меняем модели (Base) — добавляем поля, таблицы и т.д. то
+docker-compose exec auth-service alembic revision --autogenerate -m "add_some_field"
+docker-compose exec auth-service alembic upgrade head
+
+Откат миграций на одну назад
+docker-compose exec auth-service alembic downgrade -1
+
+Откат к конкретной 
+docker-compose exec auth-service alembic downgrade <revision_id>
+
+История миграций:
+docker-compose exec auth-service alembic history
+
+Текущая версия БД:
+docker-compose exec auth-service alembic current
+
+Просмотр всех изменений для ревизии:
+docker-compose exec auth-service alembic show <revision_id>

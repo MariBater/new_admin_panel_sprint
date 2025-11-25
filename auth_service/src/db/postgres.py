@@ -1,4 +1,4 @@
-from core.config import settings
+from src.core.config import settings
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
@@ -15,7 +15,7 @@ async def get_session() -> AsyncSession:
 
 
 async def create_database() -> None:
-    from models.entity import User, UsersRoles, Role, UserAuthHistory, UserProfile
+    from src.models.entity import User, UsersRoles, Role, UserAuthHistory, UserProfile
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

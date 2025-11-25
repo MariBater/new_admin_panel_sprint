@@ -14,6 +14,11 @@ services:
     build: ./auth_service/.
     env_file:
        - ./auth_service/.env
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn src.main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      - ./auth_service:/app
     ports:
       - "8001:8001"
     depends_on:
