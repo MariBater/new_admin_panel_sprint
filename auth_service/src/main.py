@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
-from logging import config as logging_config
-import logging
+
 
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
@@ -9,14 +8,10 @@ from sqlalchemy import text
 
 
 from src.api.v1 import auth, roles
-from src.core.logger import LOGGING
+from src.core.logger import app_logger
 from src.core.config import settings
 from src.db import redis as redis_db
 from src.db import postgres as posrgres_db
-
-
-logging_config.dictConfig(LOGGING)
-app_logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
