@@ -7,7 +7,7 @@ from redis import Redis
 from sqlalchemy import text
 
 
-from src.api.v1 import auth, roles
+from src.api.v1 import auth, roles, users
 from src.core.logger import app_logger
 from src.core.config import settings
 from src.db import redis as redis_db
@@ -62,4 +62,5 @@ app = FastAPI(
 # Подключение роутеров к приложению.
 # Теги используются для группировки эндпоинтов в документации.
 app.include_router(auth.router, prefix='/api/v1/auth', tags=['Авторизация'])
+app.include_router(users.router, prefix='/api/v1/users', tags=['Пользователи'])
 app.include_router(roles.router, prefix='/api/v1/roles', tags=['Управление ролями'])
