@@ -34,7 +34,8 @@ class PgRoleRepository:
         return result.scalars().all()
 
     async def get(self, role_id: UUID) -> Role | None:
-        return await self.session.get_one(Role, role_id)
+        result = await self.session.execute(select(Role).where(Role.id == role_id))
+        return result.scalar_one_or_none()
 
     async def get_by_name(self, role_name: str) -> Role | None:
         result = await self.session.execute(select(Role).where(Role.name == role_name))
@@ -61,3 +62,6 @@ class PgRoleRepository:
         await self.session.delete(role)
         await self.session.flush()
         return True
+
+    # async def set_role(self,  role: Role, user: User ):
+    #     await self.session.execute(update(Role).where(Role.id == role_id).values(users =))

@@ -9,3 +9,8 @@ class RoleName(BaseModel):
 class RoleSchema(BaseModel):
     id: UUID
     name: str
+
+
+class RoleUserSchema(BaseModel):
+    role_id: UUID
+    user_id: UUID

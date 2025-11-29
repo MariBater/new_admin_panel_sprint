@@ -28,7 +28,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     roles: Mapped[List["Role"]] = relationship(
-        secondary="users_roles", back_populates="users"
+        secondary="users_roles", back_populates="users", lazy="selectin"
     )
     auth_histories: Mapped[List["UserAuthHistory"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
