@@ -2,7 +2,7 @@ from http import HTTPStatus
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
-from src.schemas.role import RoleName, RoleSchema
+from src.schemas.role import RoleName, RoleSchema, RoleUserSchema
 from src.services.role import RoleService, get_role_service
 
 
@@ -42,3 +42,27 @@ async def delete(
     role_service: RoleService = Depends(get_role_service),
 ) -> bool:
     return await role_service.delete(role_id=role_id)
+
+
+@router.post('/set')
+async def set_role(
+    role_user: RoleUserSchema,
+    role_service: RoleService = Depends(get_role_service),
+) -> bool:
+    return await role_service.set_role(role_user=role_user)
+
+
+@router.post('/revoke')
+async def revoke_role(
+    role_user: RoleUserSchema,
+    role_service: RoleService = Depends(get_role_service),
+) -> bool:
+    return await role_service.revoke_role(role_user=role_user)
+
+
+@router.post('/check')
+async def check_role(
+    role_user: RoleUserSchema,
+    role_service: RoleService = Depends(get_role_service),
+) -> bool:
+    return await role_service.check_role(role_user=role_user)
