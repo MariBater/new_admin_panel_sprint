@@ -35,162 +35,48 @@ class RoleService:
             )
 
     async def create(self, name: str):
-        try:
-            new_role = Role(name=name)
-            role = await self.roles_repo.create(new_role)
-            await self._commit()
-            return role
-
-        except IntegrityError as e:
-            await self._handle_integrity_error(e, name)
+        new_role = Role(name=name)
+        return await self.roles_repo.create(new_role)
 
     async def update(self, role_id: UUID, name: str):
-        try:
-            updated_role = await self.roles_repo.update(role_id, Role(name=name))
-
-            if not updated_role:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND, detail="Role not found"
-                )
-
-            await self._commit()
-            return updated_role
-
-        except IntegrityError as e:
-            await self._handle_integrity_error(e, name)
+        updated_role = await self.roles_repo.update(role_id, Role(name=name))
+        return updated_role
 
     async def delete(self, role_id: UUID):
-        try:
-            deleted = await self.roles_repo.delete(role_id)
-
-            if not deleted:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND, detail="Role not found"
-                )
-
-            await self._commit()
-            return True
-
-        except SQLAlchemyError:
-            await self.session.rollback()
-            raise HTTPException(
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                detail="Database error while deleting role",
-            )
+        return await self.roles_repo.delete(role_id)
 
     async def set_role(self, role_user: RoleUserSchema) -> bool:
-        try:
-            role = await self.roles_repo.get(role_user.role_id)
-            if not role:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND,
-                    detail="Role not found",
-                )
+        role = await self.roles_repo.get(role_user.role_id)
+        user = await self.user_repo.get(role_user.user_id)
 
-            user = await self.user_repo.get(role_user.user_id)
-            if not user:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND,
-                    detail="User not found",
-                )
+        if not role or not user:
+            return False # Указываем на неудачу, обработка будет в API
 
-            if role in user.roles:
-                raise HTTPException(
-                    status_code=HTTPStatus.CONFLICT,
-                    detail="Role already exists for this user",
-                )
-
-            user.roles.append(role)
-            await self._commit()
-
+        if role in user.roles:
+            # Роль уже есть, это не ошибка, а состояние. Возвращаем True.
             return True
 
-        except HTTPException:
-            await self.session.rollback()
-            raise
-
-        except Exception as e:
-            await self.session.rollback()
-            app_logger.error("Error while setting role: %s", e)
-            raise HTTPException(
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                detail="Internal server error while assigning role",
-            )
+        user.roles.append(role)
+        return True
 
     async def revoke_role(self, role_user: RoleUserSchema) -> bool:
-        try:
-            role = await self.roles_repo.get(role_user.role_id)
-            if not role:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND, detail="Role not found"
-                )
+        role = await self.roles_repo.get(role_user.role_id)
+        user = await self.user_repo.get(role_user.user_id)
 
-            user = await self.user_repo.get(role_user.user_id)
-            if not user:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND, detail="User not found"
-                )
+        if not role or not user or role not in user.roles:
+            return False # Нечего отзывать
 
-            user.roles.remove(role)
-            await self._commit()
-            return True
-        except HTTPException:
-            await self.session.rollback()
-            raise
-
-        except Exception:
-            await self.session.rollback()
-            raise HTTPException(
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                detail="Error while set role",
-            )
+        user.roles.remove(role)
+        return True
 
     async def check_role(self, role_user: RoleUserSchema) -> bool:
-        try:
-            role = await self.roles_repo.get(role_user.role_id)
-            if not role:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND, detail="Role not found"
-                )
+        role = await self.roles_repo.get(role_user.role_id)
+        user = await self.user_repo.get(role_user.user_id)
 
-            user = await self.user_repo.get(role_user.user_id)
-            if not user:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND, detail="User not found"
-                )
+        if not role or not user:
+            return False
 
-            if role in user.roles:
-                return True
-            else:
-                return False
-        except HTTPException:
-            await self.session.rollback()
-            raise
-
-        except Exception:
-            await self.session.rollback()
-            raise HTTPException(
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                detail="Error while set role",
-            )
-
-    async def _commit(self):
-        try:
-            await self.session.commit()
-        except Exception:
-            await self.session.rollback()
-            raise HTTPException(status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
-
-    async def _handle_integrity_error(self, e: IntegrityError, name: str | None = None):
-        await self.session.rollback()
-
-        if isinstance(e.orig, asyncpg.UniqueViolationError):
-            raise HTTPException(
-                status_code=HTTPStatus.CONFLICT,
-                detail=f"Role '{name}' already exists" if name else "Duplicate value",
-            )
-
-        raise HTTPException(status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+        return role in user.roles
 
 
 @lru_cache()

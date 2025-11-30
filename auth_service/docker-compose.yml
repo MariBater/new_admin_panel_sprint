@@ -1,0 +1,55 @@
+services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: auth-service-image
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=auth_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=your_strong_password_here
+      - REDIS_HOST=redis
+      - DATABASE_URL=postgresql+asyncpg://postgres:your_strong_password_here@postgres:5432/auth_db
+      - SECRET_KEY=your_super_secret_key
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./alembic.ini:/app/alembic.ini
+      - ./alembic:/app/alembic
+    restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=auth_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=your_strong_password_here
+    command: 
+      - "postgres"
+      - "-c"
+      - "log_statement=all"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+    ports:
+      - "5433:5432"
+    restart: always
+
+  redis:
+    image: redis:7.2-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: always
+
+volumes:
+  postgres_data:

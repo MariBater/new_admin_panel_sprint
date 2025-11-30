@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 
@@ -19,7 +20,7 @@ async def get_user_by_login(login: str):
 
 async def create_user_in_db(login: str, password_hash: str):
     print(f"Pretending to create user {login} in DB.")
-    user = {"id": "some-uuid", "login": login, "password_hash": password_hash}
+    user = {"id": str(uuid4()), "login": login, "password_hash": password_hash}
     fake_users_db[login] = user
     return user
 
@@ -80,6 +81,18 @@ async def login_for_access_token(response: Response, user_data: UserLogin):
     response.set_cookie(
         key="refreshToken", value="fake-refresh-token-for-demo", httponly=True
     )
+    return {"access_token": access_token}
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(response: Response):
+    response.delete_cookie("refreshToken")
+    return
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(request: Request):
+    return {"access_token": "new-fake-access-token-from-refresh"}
     return {"access_token": access_token}
 
 

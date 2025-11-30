@@ -6,7 +6,7 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=f'.env', env_file_encoding='utf-8')
+    # model_config = SettingsConfigDict(env_file=f'.env', env_file_encoding='utf-8')
 
     PROJECT_NAME: str = Field('auth-service', alias='PROJECT_NAME')
 

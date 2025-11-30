@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, Body
+from sqlalchemy.exc import IntegrityError
 
 from src.schemas.role import RoleName, RoleSchema, RoleUserSchema
 from src.services.role import RoleService, get_role_service
@@ -17,13 +18,19 @@ async def get_all(
     return [RoleSchema(id=role.id, name=role.name) for role in role_list]
 
 
-@router.post('/')
+@router.post('/', status_code=HTTPStatus.CREATED)
 async def create(
     role_data: RoleName,
     role_service: RoleService = Depends(get_role_service),
 ) -> RoleSchema:
-    role = await role_service.create(name=role_data.name)
-    return RoleSchema(id=role.id, name=role.name)
+    try:
+        role = await role_service.create(name=role_data.name)
+        return RoleSchema(id=role.id, name=role.name)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=HTTPStatus.CONFLICT,
+            detail='Role with this name already exists',
+        )
 
 
 @router.put('/{role_id}')
@@ -33,36 +40,51 @@ async def update(
     role_service: RoleService = Depends(get_role_service),
 ) -> RoleSchema:
     role = await role_service.update(role_id=role_id, name=role_data.name)
+    if not role:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='Role not found')
     return RoleSchema(id=role.id, name=role.name)
 
 
-@router.delete('/{role_id}')
+@router.delete('/{role_id}', status_code=HTTPStatus.OK)
 async def delete(
     role_id: UUID,
     role_service: RoleService = Depends(get_role_service),
 ) -> bool:
-    return await role_service.delete(role_id=role_id)
+    deleted = await role_service.delete(role_id=role_id)
+    if not deleted:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='Role not found')
+    return deleted
 
 
-@router.post('/set')
+@router.post('/set', status_code=HTTPStatus.OK)
 async def set_role(
-    role_user: RoleUserSchema,
+    user_id: UUID = Body(),
+    role_id: UUID = Body(),
     role_service: RoleService = Depends(get_role_service),
 ) -> bool:
-    return await role_service.set_role(role_user=role_user)
+    success = await role_service.set_role(RoleUserSchema(user_id=user_id, role_id=role_id))
+    if not success:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="User or Role not found")
+    return success
 
 
-@router.post('/revoke')
+@router.post('/revoke', status_code=HTTPStatus.OK)
 async def revoke_role(
-    role_user: RoleUserSchema,
+    user_id: UUID = Body(),
+    role_id: UUID = Body(),
     role_service: RoleService = Depends(get_role_service),
 ) -> bool:
-    return await role_service.revoke_role(role_user=role_user)
+    success = await role_service.revoke_role(RoleUserSchema(user_id=user_id, role_id=role_id))
+    if not success:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="User or Role not found, or role not assigned")
+    return success
 
 
 @router.post('/check')
 async def check_role(
-    role_user: RoleUserSchema,
+    user_id: UUID = Body(),
+    role_id: UUID = Body(),
     role_service: RoleService = Depends(get_role_service),
 ) -> bool:
-    return await role_service.check_role(role_user=role_user)
+    has_role = await role_service.check_role(RoleUserSchema(user_id=user_id, role_id=role_id))
+    return has_role
