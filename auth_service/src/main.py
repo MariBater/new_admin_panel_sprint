@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
-from redis import Redis
+from redis.asyncio import Redis
 from sqlalchemy import text
 
 

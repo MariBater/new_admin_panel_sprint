@@ -1,20 +1,10 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
-class UserRegister(BaseModel):
-    login: EmailStr
-    password: str
-
-
-class UserLogin(BaseModel):
-    login: EmailStr
-    password: str
-
-
-class UserUpdateCredentials(BaseModel):
-    login: EmailStr | None = None
-    password: str | None = None
+class RefreshTokenSchema(BaseModel):
+    refresh_token: str
 
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str

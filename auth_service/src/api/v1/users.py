@@ -1,15 +1,13 @@
+from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException, status
-
-from src.core.dependencies import get_current_user, UserPayload
-
-# Эти модели нужно будет создать
-from src.schemas.auth import UserUpdateCredentials
+from src.models.entity import User
+from src.services.user import UserService, get_user_service
+from src.core.dependencies import get_current_user
+from src.schemas.user import UserRegister, UserUpdateCredentials
 
 router = APIRouter()
 
 
-# ЗАГЛУШКИ СЕРВИСНЫХ ФУНКЦИЙ
-# В реальном приложении они будут в src/services/user_service.py и работать с БД
 async def update_user_credentials_in_db(
     login: str, new_login: str | None, new_password_hash: str | None
 ):
@@ -35,29 +33,41 @@ async def get_login_history_from_db(login: str):
     ]
 
 
-# Конец заглушек
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+async def register_user(
+    user_data: UserRegister,
+    user_service: UserService = Depends(get_user_service),
+) -> bool:
+    user = await user_service.get_user_by_login(login=user_data.login)
+    if user:
+        raise HTTPException(
+            status_code=HTTPStatus.CONFLICT,
+            detail="User already created",
+        )
+    await user_service.create_user(user_data)
+
+    return True
 
 
-@router.patch("/me/credentials", status_code=status.HTTP_200_OK)
+@router.post("/me/credentials", status_code=status.HTTP_200_OK)
 async def update_user_credentials(
     update_data: UserUpdateCredentials,
-    current_user: UserPayload = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(get_user_service),
 ):
     if not update_data.login and not update_data.password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No data to update."
         )
 
-    # В реальном приложении хэширование пароля должно быть здесь или в сервисе
-    # new_password_hash = get_password_hash(update_data.password) if update_data.password else None
-
-    updated_user = await update_user_credentials_in_db(
-        current_user.sub, update_data.login, update_data.password
-    )
-    return updated_user
+    await user_service.update_user_credentials(update_data)
+    # updated_user = await update_user_credentials_in_db(
+    #     current_user.sub, update_data.login, update_data.password
+    # )
+    # return updated_user
 
 
 @router.get("/me/login-history", status_code=status.HTTP_200_OK)
-async def get_user_login_history(current_user: UserPayload = Depends(get_current_user)):
+async def get_user_login_history(current_user: User = Depends(get_current_user)):
     history = await get_login_history_from_db(current_user.sub)
     return history

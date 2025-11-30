@@ -66,6 +66,20 @@ class UserProfile(Base):
     )
     user: Mapped["User"] = relationship(back_populates="user_profile")
 
+    def __init__(
+        self,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        avatar: str | None = None,
+        phone: str | None = None,
+        city: str | None = None,
+    ):
+        self.first_name = first_name
+        self.last_name = last_name
+        self.avatar = avatar
+        self.phone = phone
+        self.city = city
+
     def __repr__(self) -> str:
         return f'<UserProfile {self.first_name} {self.last_name}>'
 
