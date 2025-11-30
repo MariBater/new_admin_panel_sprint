@@ -1,5 +1,7 @@
-fastapi[all]==0.111.0
-uvicorn==0.38.0
+passlib[bcrypt]
+fastapi==0.111.0
+python-multipart
+uvicorn==0.29.0
 asyncpg==0.30.0
 SQLAlchemy==2.0.44
 redis==6.4.0
