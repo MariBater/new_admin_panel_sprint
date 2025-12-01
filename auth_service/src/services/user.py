@@ -3,7 +3,7 @@ from http import HTTPStatus
 from uuid import UUID
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.models.entity import User, UserProfile
+from src.models.entity import User, UserAuthHistory, UserProfile
 from src.schemas.user import UserRegister, UserUpdateCredentials
 from src.repositories.user_repository import PgUserRepository, UserRepository
 from src.db.postgres import get_session
@@ -80,8 +80,32 @@ class UserService:
                 detail="Internal server error while get user",
             )
 
-    async def get_login_history_from_db(self):
-        pass
+    async def login(self, user_id: UUID, user_agent: str):
+        try:
+            user = await self.user_repo.get(user_id=user_id)
+            if user:
+                user_auth = UserAuthHistory(user_agent=user_agent, user_id=user_id)
+                user.auth_histories.append(user_auth)
+
+                await self.session.commit()
+            return user
+        except Exception as e:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                detail="Internal server error while get user",
+            )
+
+    async def get_login_history(self, user_id: UUID) -> list[UserAuthHistory]:
+        try:
+            user = await self.user_repo.get(user_id=user_id)
+            return user.auth_histories
+        except Exception as e:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                detail="Internal server error while get user",
+            )
 
 
 @lru_cache()

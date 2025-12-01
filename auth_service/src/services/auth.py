@@ -16,6 +16,7 @@ from src.repositories.auth_repository import AuthRepository, RedisAuthRepository
 from src.db.postgres import get_session
 from src.core.config import settings
 from jose import jwt
+from src.core.logger import app_logger
 
 
 class AuthService:
@@ -57,10 +58,24 @@ class AuthService:
     async def logout(self, user: User, access_token: str):
         try:
             await self.auth_repo.save_novalid_access_token(
-                user.id, acceess_token=access_token
+                str(user.id), acceess_token=access_token
             )
-            await self.auth_repo.delete_refresh_token(user.id)
-        except:
+            await self.auth_repo.delete_refresh_token(str(user.id))
+        except Exception as e:
+            raise HTTPException(
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                detail="Internal server error while logout",
+            )
+
+    async def novalid_access_token(self, user_id: UUID, access_token: str):
+        try:
+            token = await self.auth_repo.get_novalid_access_token(str(user_id))
+            if token and token == access_token:
+                return True
+
+            return False
+        except Exception as e:
+            app_logger.error(e)
             raise HTTPException(
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 detail="Internal server error while logout",
@@ -78,11 +93,15 @@ class AuthService:
                     status_code=HTTPStatus.NOT_FOUND, detail="User not found"
                 )
 
-            if token == await self.auth_repo.get_refresh_token(user_id):
+            token2 = await self.auth_repo.get_refresh_token(user_id)
+            if token == token2:
                 access_token = await self.create_access_token(user)
                 refresh_token = await self.create_refresh_token(user)
-                return TokenResponse(access_token, refresh_token)
-        except:
+                return TokenResponse(
+                    access_token=access_token, refresh_token=refresh_token
+                )
+        except Exception as e:
+            app_logger.error(e)
             raise HTTPException(
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 detail="Internal server error while refresh_token",

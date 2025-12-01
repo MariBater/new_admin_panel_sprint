@@ -8,8 +8,7 @@ from src.db.postgres import get_session
 from src.models.entity import Role
 from src.repositories.role_repository import PgRoleRepository, RoleRepository
 from http import HTTPStatus
-from src.core.logger import app_logger
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 from src.schemas.role import RoleUserSchema
 
 
@@ -50,7 +49,7 @@ class RoleService:
         user = await self.user_repo.get(role_user.user_id)
 
         if not role or not user:
-            return False # Указываем на неудачу, обработка будет в API
+            return False  # Указываем на неудачу, обработка будет в API
 
         if role in user.roles:
             # Роль уже есть, это не ошибка, а состояние. Возвращаем True.
@@ -64,7 +63,7 @@ class RoleService:
         user = await self.user_repo.get(role_user.user_id)
 
         if not role or not user or role not in user.roles:
-            return False # Нечего отзывать
+            return False  # Нечего отзывать
 
         user.roles.remove(role)
         return True

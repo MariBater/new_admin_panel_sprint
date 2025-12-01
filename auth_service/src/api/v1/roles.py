@@ -1,6 +1,6 @@
 from http import HTTPStatus
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Response, Body
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.exc import IntegrityError
 
 from src.schemas.role import RoleName, RoleSchema, RoleUserSchema
@@ -62,9 +62,13 @@ async def set_role(
     role_id: UUID = Body(),
     role_service: RoleService = Depends(get_role_service),
 ) -> bool:
-    success = await role_service.set_role(RoleUserSchema(user_id=user_id, role_id=role_id))
+    success = await role_service.set_role(
+        RoleUserSchema(user_id=user_id, role_id=role_id)
+    )
     if not success:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="User or Role not found")
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="User or Role not found"
+        )
     return success
 
 
@@ -74,9 +78,14 @@ async def revoke_role(
     role_id: UUID = Body(),
     role_service: RoleService = Depends(get_role_service),
 ) -> bool:
-    success = await role_service.revoke_role(RoleUserSchema(user_id=user_id, role_id=role_id))
+    success = await role_service.revoke_role(
+        RoleUserSchema(user_id=user_id, role_id=role_id)
+    )
     if not success:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="User or Role not found, or role not assigned")
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="User or Role not found, or role not assigned",
+        )
     return success
 
 
@@ -86,5 +95,7 @@ async def check_role(
     role_id: UUID = Body(),
     role_service: RoleService = Depends(get_role_service),
 ) -> bool:
-    has_role = await role_service.check_role(RoleUserSchema(user_id=user_id, role_id=role_id))
+    has_role = await role_service.check_role(
+        RoleUserSchema(user_id=user_id, role_id=role_id)
+    )
     return has_role

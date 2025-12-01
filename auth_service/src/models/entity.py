@@ -31,7 +31,7 @@ class User(Base):
         secondary="users_roles", back_populates="users", lazy="selectin"
     )
     auth_histories: Mapped[List["UserAuthHistory"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
+        back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
     user_profile: Mapped[Optional["UserProfile"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False

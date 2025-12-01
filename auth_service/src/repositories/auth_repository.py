@@ -10,6 +10,7 @@ class AuthRepository(Protocol):
     async def delete_refresh_token(self, user_id) -> str | None: ...
 
     async def save_novalid_access_token(self, user_id, acceess_token) -> None: ...
+    async def get_novalid_access_token(self, user_id) -> str | None: ...
 
 
 class RedisAuthRepository:
@@ -35,4 +36,9 @@ class RedisAuthRepository:
             f"novalid_{user_id}",
             settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             acceess_token,
+        )
+
+    async def get_novalid_access_token(self, user_id) -> str | None:
+        return await self.redis.get(
+            f"novalid_{user_id}",
         )

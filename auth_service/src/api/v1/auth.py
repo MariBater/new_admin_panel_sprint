@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from src.schemas.auth import RefreshTokenSchema, TokenResponse
 from src.core.dependencies import get_current_user, oauth2_scheme
 from src.models.entity import User
@@ -6,13 +6,12 @@ from src.services.auth import AuthService, get_auth_service
 from src.services.user import UserService, get_user_service
 from src.schemas.user import UserLogin
 
-
 router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
-    response: Response,
+    request: Request,
     user_data: UserLogin,
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
@@ -27,6 +26,9 @@ async def login(
     access_token = await auth_service.create_access_token(user)
     refresh_token = await auth_service.create_refresh_token(user)
 
+    user_agent = request.headers.get("user-agent")
+    await user_service.login(user_id=user.id, user_agent=user_agent)
+
     return {"access_token": access_token, "refresh_token": refresh_token}
 
 
@@ -37,6 +39,7 @@ async def logout(
     auth_service: AuthService = Depends(get_auth_service),
 ):
     await auth_service.logout(user=current_user, access_token=access_token)
+    return True
 
 
 @router.post(
@@ -46,7 +49,6 @@ async def logout(
 async def refresh_token(
     data: RefreshTokenSchema,
     auth_service: AuthService = Depends(get_auth_service),
-) -> TokenResponse:
+):
     token_response = await auth_service.refresh(data.refresh_token)
-
     return token_response
