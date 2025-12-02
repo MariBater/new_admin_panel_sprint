@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException, status
+from src.services.role import RoleService, get_role_service
 from src.models.entity import User
 from src.services.user import UserService, get_user_service
 from src.core.dependencies import get_current_user
@@ -13,6 +14,7 @@ router = APIRouter()
 async def register_user(
     user_data: UserRegister,
     user_service: UserService = Depends(get_user_service),
+    role_service: RoleService = Depends(get_role_service),
 ) -> bool:
     user = await user_service.get_user_by_login(login=user_data.login)
     if user:
@@ -20,7 +22,8 @@ async def register_user(
             status_code=HTTPStatus.CONFLICT,
             detail="User already created",
         )
-    await user_service.create_user(user_data)
+    role = await role_service.get_by_name('user')
+    await user_service.create_user(user_data, role)
 
     return True
 

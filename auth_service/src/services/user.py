@@ -3,7 +3,7 @@ from http import HTTPStatus
 from uuid import UUID
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.models.entity import User, UserAuthHistory, UserProfile
+from src.models.entity import Role, User, UserAuthHistory, UserProfile
 from src.schemas.user import UserRegister, UserUpdateCredentials
 from src.repositories.user_repository import PgUserRepository, UserRepository
 from src.db.postgres import get_session
@@ -14,7 +14,7 @@ class UserService:
         self.session = session
         self.user_repo = user_repo
 
-    async def create_user(self, user_data: UserRegister):
+    async def create_user(self, user_data: UserRegister, role: Role):
         try:
             user = User(
                 login=user_data.login,
@@ -29,6 +29,7 @@ class UserService:
                 city=user_data.city,
             )
             user.user_profile = user_profile
+            user.roles.append(role)
             user = await self.user_repo.create(user=user)
             await self.session.commit()
             return user

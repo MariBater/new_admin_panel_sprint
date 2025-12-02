@@ -15,7 +15,7 @@ from src.models.entity import User
 from src.repositories.auth_repository import AuthRepository, RedisAuthRepository
 from src.db.postgres import get_session
 from src.core.config import settings
-from jose import jwt
+from jose import ExpiredSignatureError, JWTError, jwt
 from src.core.logger import app_logger
 
 
@@ -86,25 +86,38 @@ class AuthService:
             payload = jwt.decode(
                 token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
             )
-            user_id: str = payload.get("user_id")
+
+            user_id = payload.get("user_id")
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Invalid token payload")
+
             user = await self.user_repo.get(user_id=UUID(user_id))
             if not user:
-                raise HTTPException(
-                    status_code=HTTPStatus.NOT_FOUND, detail="User not found"
-                )
+                raise HTTPException(status_code=404, detail="User not found")
 
-            token2 = await self.auth_repo.get_refresh_token(user_id)
-            if token == token2:
-                access_token = await self.create_access_token(user)
-                refresh_token = await self.create_refresh_token(user)
-                return TokenResponse(
-                    access_token=access_token, refresh_token=refresh_token
-                )
+            saved_token = await self.auth_repo.get_refresh_token(user_id)
+
+            if token != saved_token:
+                raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+            access_token = await self.create_access_token(user)
+            refresh_token = await self.create_refresh_token(user)
+
+            return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+        except ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        except HTTPException:
+            raise
+
         except Exception as e:
-            app_logger.error(e)
+            app_logger.exception(e)
             raise HTTPException(
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                detail="Internal server error while refresh_token",
+                status_code=500, detail="Internal server error while refresh_token"
             )
 
 

@@ -3,11 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.exc import IntegrityError
 
+from src.core.dependencies import require_superuser
 from src.schemas.role import RoleName, RoleSchema, RoleUserSchema
 from src.services.role import RoleService, get_role_service
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_superuser)])
 
 
 @router.get('/')

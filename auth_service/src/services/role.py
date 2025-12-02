@@ -33,6 +33,15 @@ class RoleService:
                 detail="Failed to fetch roles",
             )
 
+    async def get_by_name(self, role_name: str) -> Role | None:
+        try:
+            return await self.roles_repo.get_by_name(role_name)
+        except SQLAlchemyError:
+            raise HTTPException(
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                detail="Failed get role by name",
+            )
+
     async def create(self, name: str):
         new_role = Role(name=name)
         return await self.roles_repo.create(new_role)
