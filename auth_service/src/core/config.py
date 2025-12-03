@@ -20,9 +20,12 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = Field(5432, alias='POSTGRES_PORT')
 
     # Настройки для JWT
-    SECRET_KEY: str = Field('your-super-secret-key-for-auth-service', alias='SECRET_KEY')
+    SECRET_KEY: str = Field(
+        'your-super-secret-key-for-auth-service', alias='SECRET_KEY'
+    )
     ALGORITHM: str = Field("HS256", alias='ALGORITHM')
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(7, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
 
 
 settings = Settings()

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
-from redis import Redis
+from redis.asyncio import Redis
 from sqlalchemy import text
 
 
@@ -19,7 +19,9 @@ async def lifespan(app: FastAPI):
     # Startup
     try:
         app_logger.info("Attempting to connect to Redis...")
-        redis_db.redis = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT)
+        redis_db.redis = Redis(
+            host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True
+        )
         redis_db.redis.ping()
         app_logger.info("Successfully connected to Redis.")
     except Exception as e:

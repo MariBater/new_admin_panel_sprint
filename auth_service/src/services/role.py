@@ -8,8 +8,7 @@ from src.db.postgres import get_session
 from src.models.entity import Role
 from src.repositories.role_repository import PgRoleRepository, RoleRepository
 from http import HTTPStatus
-from src.core.logger import app_logger
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 from src.schemas.role import RoleUserSchema
 
 
@@ -34,6 +33,15 @@ class RoleService:
                 detail="Failed to fetch roles",
             )
 
+    async def get_by_name(self, role_name: str) -> Role | None:
+        try:
+            return await self.roles_repo.get_by_name(role_name)
+        except SQLAlchemyError:
+            raise HTTPException(
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                detail="Failed get role by name",
+            )
+
     async def create(self, name: str):
         new_role = Role(name=name)
         return await self.roles_repo.create(new_role)
@@ -50,7 +58,7 @@ class RoleService:
         user = await self.user_repo.get(role_user.user_id)
 
         if not role or not user:
-            return False # Указываем на неудачу, обработка будет в API
+            return False  # Указываем на неудачу, обработка будет в API
 
         if role in user.roles:
             # Роль уже есть, это не ошибка, а состояние. Возвращаем True.
@@ -64,7 +72,7 @@ class RoleService:
         user = await self.user_repo.get(role_user.user_id)
 
         if not role or not user or role not in user.roles:
-            return False # Нечего отзывать
+            return False  # Нечего отзывать
 
         user.roles.remove(role)
         return True

@@ -31,7 +31,7 @@ class User(Base):
         secondary="users_roles", back_populates="users", lazy="selectin"
     )
     auth_histories: Mapped[List["UserAuthHistory"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
+        back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
     user_profile: Mapped[Optional["UserProfile"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False
@@ -65,6 +65,20 @@ class UserProfile(Base):
         ForeignKey("users.id", ondelete="CASCADE"), unique=True
     )
     user: Mapped["User"] = relationship(back_populates="user_profile")
+
+    def __init__(
+        self,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        avatar: str | None = None,
+        phone: str | None = None,
+        city: str | None = None,
+    ):
+        self.first_name = first_name
+        self.last_name = last_name
+        self.avatar = avatar
+        self.phone = phone
+        self.city = city
 
     def __repr__(self) -> str:
         return f'<UserProfile {self.first_name} {self.last_name}>'
