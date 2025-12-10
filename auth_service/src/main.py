@@ -35,12 +35,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         app_logger.error(f"Database connection failed: {e}")
 
-    try:
-        app_logger.info("Create table")
-        await posrgres_db.create_database()
-    except Exception as e:
-        app_logger.error(f"Create table failed: {e}")
-
     yield
     # Shutdown
     if redis_db.redis:
@@ -59,6 +53,7 @@ app = FastAPI(
     openapi_url='/api/openapi.json',
     default_response_class=ORJSONResponse,
     lifespan=lifespan,
+    root_path="/auth",
 )
 
 # Подключение роутеров к приложению.

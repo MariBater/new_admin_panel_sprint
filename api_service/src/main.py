@@ -55,7 +55,9 @@ app = FastAPI(
     openapi_url='/api/openapi.json',
     default_response_class=ORJSONResponse,
     lifespan=lifespan,
+    root_path="/movies",
 )
+
 # Подключение роутеров к приложению.
 # Теги используются для группировки эндпоинтов в документации.
 app.include_router(films.router, prefix='/api/v1/films', tags=['Фильмы'])

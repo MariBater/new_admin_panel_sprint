@@ -62,6 +62,3 @@ class PgRoleRepository:
         await self.session.delete(role)
         await self.session.flush()
         return True
-
-    # async def set_role(self,  role: Role, user: User ):
-    #     await self.session.execute(update(Role).where(Role.id == role_id).values(users =))

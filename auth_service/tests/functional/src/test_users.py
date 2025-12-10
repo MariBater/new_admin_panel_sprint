@@ -71,7 +71,7 @@ async def test_login_history_success(client, fake_user_service, auth_headers):
             self.user_agent = agent
             self.auth_date = ts
 
-    fake_user_service.get_login_history.return_value = [
+    fake_user_service.get_login_history_paginated.return_value = [
         FakeHistory("Chrome", "2024-01-01"),
         FakeHistory("Safari", "2024-01-02"),
     ]

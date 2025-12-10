@@ -16,11 +16,9 @@ services:
        - ./auth_service/.env
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn src.main:app --host 0.0.0.0 --port 8001"
+        gunicorn src.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001 --timeout 120"
     volumes:
       - ./auth_service:/app
-    ports:
-      - "8001:8001"
     depends_on:
       auth-db:
         condition: service_healthy
@@ -86,12 +84,6 @@ services:
     image: postgres:17
     env_file:
        - ./auth_service/.env
-    environment:
-      POSTGRES_DB: auth-db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret
-    ports:
-      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

@@ -32,10 +32,10 @@ from src.api.v1.auth import router as auth_router
 from tests.functional.settings import settings
 
 TEST_DSN = (
-    f"postgresql+asyncpg://{settings.TEST_POSTGRES_USER}:"
-    f"{settings.TEST_POSTGRES_PASSWORD}@"
-    f"{settings.TEST_POSTGRES_HOST}:{settings.TEST_POSTGRES_PORT}/"
-    f"{settings.TEST_POSTGRES_DB}"
+    f"postgresql+asyncpg://{settings.POSTGRES_USER}:"
+    f"{settings.POSTGRES_PASSWORD}@"
+    f"{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/"
+    f"{settings.POSTGRES_DB}"
 )
 
 engine_test = create_async_engine(TEST_DSN, future=True, echo=False)
@@ -70,7 +70,7 @@ async def fake_user_service():
         def check_password(self, pwd):
             return pwd == "pass3"
 
-    svc.get_user_by_login.return_value = FakeUser()
+    svc.get_login_history_paginated.return_value = FakeUser()
     svc.login.return_value = None
 
     return svc
