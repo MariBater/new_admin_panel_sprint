@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from src.services.role import RoleService, get_role_service
 from src.models.entity import User
 from src.services.user import UserService, get_user_service
@@ -48,10 +48,14 @@ async def update_user_credentials(
 
 @router.get("/me/login-history", status_code=status.HTTP_200_OK)
 async def get_user_login_history(
+    page: int = Query(default=1, ge=1, description="Номер страницы"),
+    size: int = Query(default=10, ge=1, le=100, description="Размер страницы"),
     current_user: User = Depends(get_current_user),
     user_service: UserService = Depends(get_user_service),
 ):
-    user_history_list = await user_service.get_login_history(user_id=current_user.id)
+    user_history_list = await user_service.get_login_history_paginated(
+        user_id=current_user.id, page=page, size=size
+    )
     return [
         {"user_agent": h.user_agent, 'login_at': h.auth_date} for h in user_history_list
     ]

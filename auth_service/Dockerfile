@@ -11,4 +11,4 @@ COPY src/ src/
 
 EXPOSE 8001
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload", "--reload-dir", "src"]
+CMD ["gunicorn", "src.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8001", "--timeout", "120"]

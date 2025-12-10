@@ -97,10 +97,20 @@ class UserService:
                 detail="Internal server error while get user",
             )
 
-    async def get_login_history(self, user_id: UUID) -> list[UserAuthHistory]:
+    async def get_login_history_paginated(
+        self, user_id: UUID, page: int, size: int
+    ) -> list[UserAuthHistory]:
         try:
             user = await self.user_repo.get(user_id=user_id)
-            return user.auth_histories
+            if not user:
+                raise HTTPException(
+                    status_code=HTTPStatus.NOT_FOUND,
+                    detail="User not found",
+                )
+
+            return await self.user_repo.get_login_history_paginated(
+                user_id=user_id, page=page, size=size
+            )
         except Exception as e:
             await self.session.rollback()
             raise HTTPException(

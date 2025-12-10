@@ -4,14 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
     image: auth-service-image
-    environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=auth_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=your_strong_password_here
-      - REDIS_HOST=redis
-      - DATABASE_URL=postgresql+asyncpg://postgres:your_strong_password_here@postgres:5432/auth_db
-      - SECRET_KEY=your_super_secret_key
+    env_file:
+       - .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -26,10 +20,8 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    environment:
-      - POSTGRES_DB=auth_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=your_strong_password_here
+    env_file:
+       - .env
     command: 
       - "postgres"
       - "-c"
@@ -38,8 +30,6 @@ services:
       - postgres_data:/var/lib/postgresql/data/
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
-    ports:
-      - "5433:5432"
     restart: always
 
   redis:
