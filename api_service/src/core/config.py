@@ -25,5 +25,7 @@ class Settings(BaseSettings):
     # Время жизни кеша
     CACHE_EXPIRE_IN_SECONDS: int = 300
 
+    AUTH_SERVICE_API: str = Field('', alias='AUTH_SERVICE_API')
+
 
 settings = Settings()

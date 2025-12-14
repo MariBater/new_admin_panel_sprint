@@ -50,6 +50,8 @@ services:
       - media_volume:/data/media   
     depends_on:
       - api-service
+      - auth-service
+      - admin-service
     ports:
       - "81:80"
     restart: always

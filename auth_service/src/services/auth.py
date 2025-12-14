@@ -32,7 +32,13 @@ class AuthService:
         self.user_repo = user_repo
 
     async def create_access_token(self, user: User):
-        to_encode = {'user_id': str(user.id), 'login': user.login}.copy()
+        roles = ",".join([role.name for role in user.roles])
+        to_encode = {
+            'user_id': str(user.id),
+            'login': user.login,
+            'email': user.email,
+            'roles': roles,
+        }.copy()
 
         expire = datetime.utcnow() + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES

@@ -7,7 +7,10 @@ https://github.com/eevtmn/online_cinema_service
 
 
 API сервиса онлайн-кинотеатра:
-    http://127.0.0.1:81/movies/api/openapi
+    http://127.0.0.1:81/content/api/openapi
 
 API сервиса авторизации:
     http://127.0.0.1:81/auth/api/openapi
+
+Админка django:
+    http://127.0.0.1:81/admin/
