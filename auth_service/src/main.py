@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.responses import ORJSONResponse
 from redis.asyncio import Redis
 from sqlalchemy import text
@@ -12,6 +12,12 @@ from src.core.logger import app_logger
 from src.core.config import settings
 from src.db import redis as redis_db
 from src.db import postgres as posrgres_db
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.resources import Resource, SERVICE_NAME
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 
 @asynccontextmanager
@@ -45,6 +51,21 @@ async def lifespan(app: FastAPI):
     app_logger.info("Postgres connection closed.")
 
 
+def configure_tracer() -> None:
+    resource = Resource(
+        attributes={
+            SERVICE_NAME: settings.JAEGER_SERVICE_NAME,
+        }
+    )
+
+    tracer_provider = TracerProvider(resource=resource)
+    processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=settings.JAEGER_ENDPOINT))
+    tracer_provider.add_span_processor(processor)
+    tracer_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+    trace.set_tracer_provider(tracer_provider)
+
+
+configure_tracer()
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Сервис авторизации",
@@ -55,6 +76,24 @@ app = FastAPI(
     lifespan=lifespan,
     root_path="/auth",
 )
+FastAPIInstrumentor.instrument_app(
+    app,
+    tracer_provider=trace.get_tracer_provider(),
+    excluded_urls="health,/metrics,/docs,/openapi.json,/favicon.ico",
+)
+
+
+@app.middleware('http')
+async def before_request(request: Request, call_next):
+    response = await call_next(request)
+    request_id = request.headers.get('X-Request-Id')
+    if not request_id:
+        return ORJSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={'detail': 'X-Request-Id is required'},
+        )
+    return response
+
 
 # Подключение роутеров к приложению.
 # Теги используются для группировки эндпоинтов в документации.

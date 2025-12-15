@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from src.core.tracing import traced
 from src.schemas.auth import RefreshTokenSchema, TokenResponse
 from src.core.dependencies import get_current_user, oauth2_scheme
 from src.models.entity import User
@@ -9,6 +10,7 @@ from src.schemas.user import UserLogin
 router = APIRouter()
 
 
+@traced("api_login_user")
 @router.post("/login", response_model=TokenResponse)
 async def login(
     request: Request,
@@ -32,6 +34,7 @@ async def login(
     return {"access_token": access_token, "refresh_token": refresh_token}
 
 
+@traced("api_logout_user")
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     access_token: str = Depends(oauth2_scheme),
@@ -42,6 +45,7 @@ async def logout(
     return True
 
 
+@traced("api_refresh_token")
 @router.post(
     "/refresh",
     response_model=TokenResponse,

@@ -1,15 +1,17 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from src.core.tracing import traced
 from src.services.role import RoleService, get_role_service
 from src.models.entity import User
 from src.services.user import UserService, get_user_service
 from src.core.dependencies import get_current_user
 from src.schemas.user import UserRegister, UserUpdateCredentials
-
+from opentelemetry import trace
 
 router = APIRouter()
 
 
+@traced("api_register_user")
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user(
     user_data: UserRegister,
@@ -28,6 +30,7 @@ async def register_user(
     return True
 
 
+@traced("api_me_credentials_user")
 @router.post("/me/credentials", status_code=status.HTTP_200_OK)
 async def update_user_credentials(
     update_data: UserUpdateCredentials,
@@ -46,6 +49,7 @@ async def update_user_credentials(
     return {"user_id": updated_user.id, 'login': updated_user.login}
 
 
+@traced("api_me_login_history_user")
 @router.get("/me/login-history", status_code=status.HTTP_200_OK)
 async def get_user_login_history(
     page: int = Query(default=1, ge=1, description="Номер страницы"),

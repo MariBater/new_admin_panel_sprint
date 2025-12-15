@@ -3,14 +3,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.exc import IntegrityError
 
+from src.core.tracing import traced
 from src.core.dependencies import get_current_user, require_superuser
 from src.schemas.role import RoleName, RoleSchema, RoleUserSchema
 from src.services.role import RoleService, get_role_service
 from src.models.entity import User
+from opentelemetry import trace
 
 router = APIRouter()
 
 
+@traced("api_get_all_roles")
 @router.get('/')
 async def get_all(
     role_service: RoleService = Depends(get_role_service),
@@ -20,6 +23,7 @@ async def get_all(
     return [RoleSchema(id=role.id, name=role.name) for role in role_list]
 
 
+@traced("api_create_role")
 @router.post('/', status_code=HTTPStatus.CREATED)
 async def create(
     role_data: RoleName,
@@ -36,6 +40,7 @@ async def create(
         )
 
 
+@traced("api_update_role")
 @router.put('/{role_id}')
 async def update(
     role_id: UUID,
@@ -49,6 +54,7 @@ async def update(
     return RoleSchema(id=role.id, name=role.name)
 
 
+@traced("api_delete_role")
 @router.delete('/{role_id}', status_code=HTTPStatus.OK)
 async def delete(
     role_id: UUID,
@@ -61,6 +67,7 @@ async def delete(
     return deleted
 
 
+@traced("api_set_role")
 @router.post('/set', status_code=HTTPStatus.OK)
 async def set_role(
     user_id: UUID = Body(),
@@ -78,6 +85,7 @@ async def set_role(
     return success
 
 
+@traced("api_revoke_role")
 @router.post('/revoke', status_code=HTTPStatus.OK)
 async def revoke_role(
     user_id: UUID = Body(),
@@ -96,6 +104,7 @@ async def revoke_role(
     return success
 
 
+@traced("api_check_role")
 @router.post('/check')
 async def check_role(
     user_id: UUID = Body(),
