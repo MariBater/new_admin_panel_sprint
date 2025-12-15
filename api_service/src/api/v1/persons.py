@@ -2,6 +2,8 @@ from http import HTTPStatus
 from typing import Annotated, List
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
+from core.auth_depends import RoleEnum, require_roles
+from schemas.user import User
 from services.person import PersonService, get_person_service
 from .dependencies import PaginationParams
 from schemas.film import Film
@@ -15,6 +17,9 @@ async def person_search(
     query: Annotated[str | None, Query(description='Текст для поиска по имени')] = None,
     pagination: PaginationParams = Depends(),
     person_service: PersonService = Depends(get_person_service),
+    current_user: User = Depends(
+        require_roles(roles=[RoleEnum.ADMIN, RoleEnum.USER, RoleEnum.PREMIUM_USER])
+    ),
 ) -> List[PersonExtended]:
     """
     Поиск персоналий (актеры, режиссеры, сценаристы) по имени.
@@ -41,6 +46,9 @@ async def person_search(
 async def person_details(
     person_id: str,
     person_service: PersonService = Depends(get_person_service),
+    current_user: User = Depends(
+        require_roles(roles=[RoleEnum.ADMIN, RoleEnum.USER, RoleEnum.PREMIUM_USER])
+    ),
 ) -> PersonExtended:
     """
     Возвращает полную информацию о персоне (имя и фильмы с ее участием).
@@ -56,6 +64,9 @@ async def person_details(
 async def person_film(
     person_id: str,
     person_service: PersonService = Depends(get_person_service),
+    current_user: User = Depends(
+        require_roles(roles=[RoleEnum.ADMIN, RoleEnum.USER, RoleEnum.PREMIUM_USER])
+    ),
 ):
     """
     Возвращает список фильмов, в создании которых принимала участие указанная персона.

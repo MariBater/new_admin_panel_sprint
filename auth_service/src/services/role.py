@@ -68,7 +68,7 @@ class RoleService:
         return True
 
     async def revoke_role(self, role_user: RoleUserSchema) -> bool:
-        role = await self.roles_repo.get(role_user.role_id)
+        role = await self.roles_repo.get_by_name(role_user.role_name)
         user = await self.user_repo.get(role_user.user_id)
 
         if not role or not user or role not in user.roles:
@@ -78,7 +78,7 @@ class RoleService:
         return True
 
     async def check_role(self, role_user: RoleUserSchema) -> bool:
-        role = await self.roles_repo.get(role_user.role_id)
+        role = await self.roles_repo.get_by_name(role_user.role_name)
         user = await self.user_repo.get(role_user.user_id)
 
         if not role or not user:

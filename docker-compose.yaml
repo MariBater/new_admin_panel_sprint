@@ -1,4 +1,25 @@
 services:
+  admin-service:
+    build: ./admin_service/.
+    volumes:
+      - static_volume:/data/static
+      - media_volume:/data/media
+    expose:
+      - "8000"
+    env_file:
+      - ./admin_service/.env
+    depends_on:
+      theatre-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/8000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: always
+
+
   api-service:
     build: ./api_service/.
     env_file:
@@ -8,6 +29,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/8000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: always
 
   auth-service:
@@ -24,6 +51,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/8001' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: always
 
   nginx:
@@ -31,11 +64,18 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/configs:/etc/nginx/conf.d:ro
+      - static_volume:/data/static
+      - media_volume:/data/media   
     depends_on:
-      - api-service
+      api-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      admin-service:
+        condition: service_healthy
     ports:
       - "81:80"
-    restart: always
+    restart: unless-stopped
     ulimits:
       nofile:
         soft: 16384
@@ -91,8 +131,28 @@ services:
       interval: 2s
       retries: 20
     restart: always
+    ports:
+      - "5433:5432"
+
+  theatre-db:
+    image: postgres:17
+    env_file:
+       - ./admin_service/.env
+    volumes:
+      - theatre_postgres_data:/var/lib/postgresql/data
+      - ./admin_service/database_dump.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      retries: 10
+    restart: always
+    ports:
+      - "5434:5432"
 
 volumes:
   elasticsearch_data:
   redis_data:
   postgres_data:
+  theatre_postgres_data:
+  static_volume:
+  media_volume:

@@ -25,5 +25,11 @@ class Settings(BaseSettings):
     # Время жизни кеша
     CACHE_EXPIRE_IN_SECONDS: int = 300
 
+    AUTH_SERVICE_API: str = Field('', alias='AUTH_SERVICE_API')
+    SECRET_KEY: str = Field(
+        'your-super-secret-key-for-auth-service', alias='SECRET_KEY'
+    )
+    ALGORITHM: str = Field("HS256", alias='ALGORITHM')
+
 
 settings = Settings()
