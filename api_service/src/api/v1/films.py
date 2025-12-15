@@ -3,6 +3,8 @@ from typing import Annotated, List
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from schemas.user import User
+from core.auth_depends import RoleEnum, require_roles
 from schemas.person import Person
 from schemas.genre import Genre
 from schemas.film import Film, FilmExtended
@@ -20,10 +22,17 @@ router = APIRouter()
 async def films(
     genre: Annotated[str | None, Query(description='Фильтр по ID жанра')] = None,
     sort: Annotated[
-        str | None, Query(description='Сортировка по рейтингу (imdb_rating или -imdb_rating)')
+        str | None,
+        Query(description='Сортировка по рейтингу (imdb_rating или -imdb_rating)'),
     ] = None,
     pagination: PaginationParams = Depends(),
     film_service: FilmService = Depends(get_film_service),
+    current_user: User = Depends(
+        require_roles(
+            roles=[RoleEnum.ADMIN, RoleEnum.USER, RoleEnum.PREMIUM_USER],
+            use_auth_service=True,
+        )
+    ),
 ) -> List[Film]:
     """
     Возвращает список фильмов.
@@ -55,6 +64,9 @@ async def films_search(
     query: Annotated[str, Query(description='Текст для поиска', min_length=3)],
     pagination: PaginationParams = Depends(),
     film_service: FilmService = Depends(get_film_service),
+    current_user: User = Depends(
+        require_roles(roles=[RoleEnum.ADMIN, RoleEnum.USER, RoleEnum.PREMIUM_USER])
+    ),
 ) -> List[Film]:
     """
     Полнотекстовый поиск по фильмам.
@@ -78,6 +90,9 @@ async def films_search(
 async def film_details(
     film_id: str,
     film_service: FilmService = Depends(get_film_service),
+    current_user: User = Depends(
+        require_roles(roles=[RoleEnum.ADMIN, RoleEnum.PREMIUM_USER])
+    ),
 ) -> Film:
     """
     Возвращает полную информацию о фильме по его ID.

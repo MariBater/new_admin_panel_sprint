@@ -11,6 +11,12 @@ services:
     depends_on:
       theatre-db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/8000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: always
 
 
@@ -23,6 +29,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/8000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: always
 
   auth-service:
@@ -39,6 +51,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/8001' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: always
 
   nginx:
@@ -49,12 +67,15 @@ services:
       - static_volume:/data/static
       - media_volume:/data/media   
     depends_on:
-      - api-service
-      - auth-service
-      - admin-service
+      api-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      admin-service:
+        condition: service_healthy
     ports:
       - "81:80"
-    restart: always
+    restart: unless-stopped
     ulimits:
       nofile:
         soft: 16384

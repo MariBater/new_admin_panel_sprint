@@ -1,3 +1,7 @@
+from logging import config as logging_config
+import logging
+
+
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 LOG_DEFAULT_HANDLERS = [
     'console',
@@ -54,3 +58,7 @@ LOGGING = {
         'handlers': LOG_DEFAULT_HANDLERS,
     },
 }
+
+
+logging_config.dictConfig(LOGGING)
+app_logger = logging.getLogger(__name__)

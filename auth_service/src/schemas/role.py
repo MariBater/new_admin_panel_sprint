@@ -12,5 +12,5 @@ class RoleSchema(BaseModel):
 
 
 class RoleUserSchema(BaseModel):
-    role_id: UUID
     user_id: UUID
+    role_name: str

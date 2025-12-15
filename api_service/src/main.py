@@ -1,5 +1,3 @@
-import logging
-from logging import config as logging_config
 from contextlib import asynccontextmanager
 
 from elasticsearch import AsyncElasticsearch
@@ -9,12 +7,9 @@ from redis.asyncio import Redis
 
 from api.v1 import films, genres, persons
 from core.config import settings
-from core.logger import LOGGING
+from core.logger import app_logger
 from db import elastic as elastic_db
 from db import redis as redis_db
-
-logging_config.dictConfig(LOGGING)
-app_logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager

@@ -3,6 +3,8 @@ from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from schemas.user import User
+from core.auth_depends import RoleEnum, require_roles
 from schemas.genre import Genre
 from .dependencies import PaginationParams
 from services.genre import GenreService, get_genre_service
@@ -14,6 +16,9 @@ router = APIRouter()
 async def genre_details(
     genre_id: str,
     genre_service: GenreService = Depends(get_genre_service),
+    current_user: User = Depends(
+        require_roles(roles=[RoleEnum.ADMIN, RoleEnum.USER, RoleEnum.PREMIUM_USER])
+    ),
 ) -> Genre:
     """Получение жанра по его id"""
     genre = await genre_service.get_by_id(genre_id)
@@ -24,17 +29,17 @@ async def genre_details(
 
 @router.get("/", summary='Список жанров', response_model=List[Genre])
 async def genres(
-    # Убираем все сложные зависимости и принимаем параметры напрямую, как в films.py
     pagination: PaginationParams = Depends(),
     genre_service: GenreService = Depends(get_genre_service),
+    current_user: User = Depends(
+        require_roles(roles=[RoleEnum.ADMIN, RoleEnum.USER, RoleEnum.PREMIUM_USER])
+    ),
 ) -> List[Genre]:
     """Получение списка жанров с пагинацией."""
-    
-    # Вызываем метод get_all, который точно существует в вашем сервисе
     genre_list = await genre_service.get_all(
         page_number=pagination.page_number, page_size=pagination.page_size
     )
-    
+
     return [Genre(uuid=g.id, name=g.name) for g in genre_list]
 
 
@@ -43,12 +48,14 @@ async def genre_search(
     query: Annotated[str, Query(min_length=1, description='Текст для поиска')],
     pagination: PaginationParams = Depends(),
     genre_service: GenreService = Depends(get_genre_service),
+    current_user: User = Depends(
+        require_roles(roles=[RoleEnum.ADMIN, RoleEnum.USER, RoleEnum.PREMIUM_USER])
+    ),
 ) -> List[Genre]:
     """Поиск жанров по названию."""
-    
-    # Предполагаем, что в GenreService есть или будет метод search
+
     genre_list = await genre_service.search(
         query=query, page_number=pagination.page_number, page_size=pagination.page_size
     )
-    
+
     return [Genre(uuid=g.id, name=g.name) for g in genre_list]
