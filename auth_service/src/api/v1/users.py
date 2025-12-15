@@ -1,15 +1,17 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from src.core.tracing import traced
 from src.services.role import RoleService, get_role_service
 from src.models.entity import User
 from src.services.user import UserService, get_user_service
 from src.core.dependencies import get_current_user
 from src.schemas.user import UserRegister, UserUpdateCredentials
-
+from opentelemetry import trace
 
 router = APIRouter()
 
 
+@traced("user_registration")
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user(
     user_data: UserRegister,

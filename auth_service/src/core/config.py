@@ -27,5 +27,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(7, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
 
+    JAEGER_ENDPOINT: str = Field('http://jaeger:4317', alias='JAEGER_ENDPOINT')
+    JAEGER_SERVICE_NAME: str = Field('', alias='JAEGER_SERVICE_NAME')
+
 
 settings = Settings()

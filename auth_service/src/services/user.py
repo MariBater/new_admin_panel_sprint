@@ -1,8 +1,10 @@
 from functools import lru_cache
 from http import HTTPStatus
+from opentelemetry import trace
 from uuid import UUID
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from src.core.tracing import traced
 from src.models.entity import Role, User, UserAuthHistory, UserProfile
 from src.schemas.user import UserRegister, UserUpdateCredentials
 from src.repositories.user_repository import PgUserRepository, UserRepository
@@ -14,6 +16,7 @@ class UserService:
         self.session = session
         self.user_repo = user_repo
 
+    @traced("create_user")
     async def create_user(self, user_data: UserRegister, role: Role):
         try:
             user = User(
