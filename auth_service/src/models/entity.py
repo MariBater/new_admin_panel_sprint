@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 import uuid
 from datetime import datetime
 
@@ -8,12 +8,16 @@ from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from werkzeug.security import check_password_hash, generate_password_hash
-
+ 
 from src.db.postgres import Base
+
+if TYPE_CHECKING:
+    from src.models.social_account import SocialAccount
 
 
 class User(Base):
     __tablename__ = 'users'
+    __table_args__ = {'extend_existing': True}
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -36,11 +40,18 @@ class User(Base):
     user_profile: Mapped[Optional["UserProfile"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False
     )
+    social_accounts: Mapped[List["SocialAccount"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
-    def __init__(self, login: str, password: str, email: str) -> None:
+    def __init__(self, login: str, password: str, email: str, id: uuid.UUID = None, **kwargs) -> None:
+        if id:
+            self.id = id
         self.login = login
-        self.password = generate_password_hash(password)
         self.email = email
+        # Хешируем пароль, только если он не пустой (для тестовых объектов)
+        if password:
+            self.password = generate_password_hash(password)
 
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.password, password)
@@ -51,6 +62,7 @@ class User(Base):
 
 class UserProfile(Base):
     __tablename__ = 'user_profiles'
+    __table_args__ = {'extend_existing': True}
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -88,15 +100,19 @@ class UserAuthHistory(Base):
     __tablename__ = 'users_auth_history'
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
     )
     user_agent: Mapped[str] = mapped_column(Text, nullable=False)
-    auth_date: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    auth_date: Mapped[datetime] = mapped_column(default=datetime.utcnow, primary_key=True)
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE")
     )
     user: Mapped["User"] = relationship(back_populates="auth_histories")
+
+    __table_args__ = (
+        {'postgresql_partition_by': 'RANGE (auth_date)'},
+    )
 
     def __init__(self, user_agent: str, user_id: uuid.UUID):
         self.user_agent = user_agent
@@ -108,6 +124,7 @@ class UserAuthHistory(Base):
 
 class Role(Base):
     __tablename__ = 'roles'
+    __table_args__ = {'extend_existing': True}
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -140,7 +157,10 @@ class UsersRoles(Base):
     )
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
 
-    __table_args__ = (UniqueConstraint('user_id', 'role_id', name='uq_user_role'),)
+    __table_args__ = (
+        UniqueConstraint('user_id', 'role_id', name='uq_user_role'),
+        {'extend_existing': True},
+    )
 
     def __repr__(self) -> str:
         return f'<UsersRoles user_id={self.user_id} role_id={self.role_id}>'

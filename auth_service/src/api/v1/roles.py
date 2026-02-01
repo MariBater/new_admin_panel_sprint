@@ -3,11 +3,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.exc import IntegrityError
 
-from src.core.tracing import traced
 from src.core.dependencies import get_current_user, require_superuser
+from src.core.tracing import traced
+from src.models.entity import User
 from src.schemas.role import RoleName, RoleSchema, RoleUserSchema
 from src.services.role import RoleService, get_role_service
-from src.models.entity import User
 from opentelemetry import trace
 
 router = APIRouter()

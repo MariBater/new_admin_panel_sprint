@@ -12,7 +12,7 @@ class CommonSettings(BaseSettings):
     POSTGRES_PASSWORD: str = Field('', alias='POSTGRES_PASSWORD')
     POSTGRES_DB: str = Field('test-auth-db', alias='POSTGRES_DB')
     POSTGRES_USER: str = Field('postgres', alias='POSTGRES_USER')
-    POSTGRES_HOST: str = Field('test-auth-db', alias='POSTGRES_HOST')
+    POSTGRES_HOST: str = Field('localhost', alias='POSTGRES_HOST')
     POSTGRES_PORT: int = Field(5432, alias='POSTGRES_PORT')
 
     REDIS_HOST: str = Field('127.0.0.1', alias='REDIS_HOST')

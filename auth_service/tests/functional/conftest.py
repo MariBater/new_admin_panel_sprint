@@ -1,176 +1,130 @@
 import asyncio
-from typing import AsyncGenerator
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
+import uuid
 
+from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-import redis.asyncio as aioredis
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
-from fastapi import Depends, FastAPI
-from sqlalchemy.ext.asyncio import (
-    create_async_engine,
-    async_sessionmaker,
-    AsyncSession,
-)
+# --- Pre-import Configuration ---
+# This must run BEFORE any application modules are imported.
+from src.core.config import settings
+settings.TRACING_ENABLED = False
+# --- End Pre-import Configuration ---
 
-from src.models.entity import User
-from src.core.dependencies import get_current_user, require_superuser
-from src.db.postgres import get_session, Base
-
-from src.repositories.role_repository import PgRoleRepository
-from src.repositories.user_repository import PgUserRepository
-
-from src.services.role import RoleService, get_role_service
-from src.services.user import get_user_service
+from src.db.postgres import Base, get_session
+from src.main import app
+from src.models import entity, social_account  # Import all models
 from src.services.auth import get_auth_service
+from src.services.role import get_role_service
+from src.services.user import get_user_service
 
-from src.api.v1.roles import router as role_router
-from src.api.v1.users import router as users_router
-from src.api.v1.auth import router as auth_router
 
-from tests.functional.settings import settings
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for each test session."""
+    # Для тестов, запускаемых локально, переопределяем хост БД
+    if settings.POSTGRES_HOST == 'auth-db':
+        settings.POSTGRES_HOST = 'localhost'
 
-TEST_DSN = (
-    f"postgresql+asyncpg://{settings.POSTGRES_USER}:"
-    f"{settings.POSTGRES_PASSWORD}@"
-    f"{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/"
-    f"{settings.POSTGRES_DB}"
-)
-
-engine_test = create_async_engine(TEST_DSN, future=True, echo=False)
-
-TestAsyncSessionLocal = async_sessionmaker(
-    engine_test, expire_on_commit=False, class_=AsyncSession
-)
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
 
 
 @pytest_asyncio.fixture(scope="session")
-async def prepare_database():
-    async with engine_test.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-    yield
+async def test_engine():
+    """Фикстура для создания тестового движка и таблиц с ожиданием готовности БД."""
+    engine = create_async_engine(str(settings.POSTGRES_DSN), echo=False)
+    
+    # Добавляем механизм ожидания готовности БД
+    for _ in range(5):  # Попробуем подключиться 5 раз
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+                await conn.run_sync(Base.metadata.create_all)
+            yield engine
+            await engine.dispose()
+            return
+        except ConnectionRefusedError:
+            print("Connection to DB refused, retrying in 2 seconds...")
+            await asyncio.sleep(2)
+
+    raise ConnectionError("Could not connect to the database after several retries.")
 
 
 @pytest_asyncio.fixture
-async def session() -> AsyncGenerator[AsyncSession, None]:
-    async with TestAsyncSessionLocal() as session:
+async def session(test_engine):
+    """Фикстура для создания сессии БД для одного теста."""
+    TestSessionLocal = sessionmaker(
+        bind=test_engine, class_=AsyncSession, expire_on_commit=False
+    )
+    async with TestSessionLocal() as session:
         yield session
 
 
-@pytest_asyncio.fixture
-async def fake_user_service():
-    svc = AsyncMock()
+@pytest_asyncio.fixture(scope="function")
+async def client( # This fixture now correctly uses the `session` fixture
+    session: AsyncSession, # It depends on the session fixture below
+    fake_user_service: AsyncMock,
+    fake_auth_service: AsyncMock,
+    fake_role_service: AsyncMock,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Фикстура для создания тестового клиента с сессией БД."""
+    app.dependency_overrides[get_session] = lambda: session
+    app.dependency_overrides[get_user_service] = lambda: fake_user_service
+    app.dependency_overrides[get_auth_service] = lambda: fake_auth_service
+    app.dependency_overrides[get_role_service] = lambda: fake_role_service
 
-    class FakeUser:
-        id = 1
-        login = "user3"
+    # Add X-Request-Id to all requests
+    headers = {"X-Request-Id": str(uuid.uuid4())}
 
-        def check_password(self, pwd):
-            return pwd == "pass3"
-
-    svc.get_login_history_paginated.return_value = FakeUser()
-    svc.login.return_value = None
-
-    return svc
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test", headers=headers) as ac:
+        yield ac
 
 
-@pytest_asyncio.fixture
-async def fake_auth_service():
-    svc = AsyncMock()
-    svc.create_access_token.return_value = "access123"
-    svc.create_refresh_token.return_value = "refresh123"
-    return svc
+@pytest.fixture
+def fake_user_service():
+    return AsyncMock()
+
+
+@pytest.fixture
+def fake_auth_service():
+    return AsyncMock()
+
+
+@pytest.fixture
+def fake_role_service():
+    return AsyncMock()
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def clear_cached_services():
     get_user_service.cache_clear()
     get_auth_service.cache_clear()
-
-
-@pytest_asyncio.fixture
-async def fake_role_service():
-    svc = AsyncMock()
-
-    class FakeRole:
-        id = 1
-        name = "user"
-
-    svc.get_by_name.return_value = FakeRole()
-
-    return svc
+    get_role_service.cache_clear()
+    yield
+    app.dependency_overrides = {}
 
 
 @pytest.fixture
-def auth_headers():
-    return {"Authorization": "Bearer testtoken123"}
+def auth_data(fake_auth_service: AsyncMock, fake_user_service: AsyncMock):
+    """Фикстура для аутентификации, мокает get_current_user и require_superuser."""
+    mock_superuser = entity.User( # type: ignore
+        id=uuid.uuid4(),
+        login="superuser",
+        password="superpassword",
+        email="super@user.com",
+    )
+    mock_superuser.is_superuser = True
 
+    fake_auth_service.get_user_from_token.return_value = mock_superuser
 
-@pytest_asyncio.fixture
-async def client(app: FastAPI):
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test",
-    ) as client:
-        yield client
-
-
-@pytest_asyncio.fixture
-async def app(
-    session: AsyncSession,
-    fake_user_service,
-    fake_auth_service,
-) -> FastAPI:
-    app = FastAPI()
-
-    async def fake_require_superuser():
-        return True
-
-    app.dependency_overrides[require_superuser] = fake_require_superuser
-
-    async def fake_get_current_user():
-        class FakeUser:
-            id = 1
-            login = "user3"
-
-        return FakeUser()
-
-    app.dependency_overrides[get_current_user] = fake_get_current_user
-
-    async def override_get_session():
-        yield session
-
-    app.dependency_overrides[get_session] = override_get_session
-
-    app.dependency_overrides[get_user_service] = lambda: fake_user_service
-    app.dependency_overrides[get_auth_service] = lambda: fake_auth_service
-
-    async def override_get_role_service(
-        session: AsyncSession = Depends(override_get_session),
-    ):
-        return RoleService(
-            session=session,
-            roles_repo=PgRoleRepository(session),
-            user_repo=PgUserRepository(session),
-        )
-
-    app.dependency_overrides[get_role_service] = override_get_role_service
-
-    app.include_router(role_router, prefix="/api/v1/roles")
-    app.include_router(users_router, prefix="/api/v1/users")
-    app.include_router(auth_router, prefix="/api/v1/auth")
-
-    return app
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """
-    Создает event loop на всю тестовую сессию.
-    Это необходимо для корректной работы pytest-asyncio.
-    """
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+    return {
+        "headers": {"Authorization": "Bearer testtoken123"},
+        "user": mock_superuser,
+    }

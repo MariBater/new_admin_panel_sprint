@@ -1,17 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from src.core.tracing import traced
-from src.schemas.auth import RefreshTokenSchema, TokenResponse
 from src.core.dependencies import get_current_user, oauth2_scheme
+from src.core.tracing import traced
 from src.models.entity import User
+from src.schemas.auth import RefreshTokenSchema, TokenResponse
+from src.schemas.user import UserLogin
 from src.services.auth import AuthService, get_auth_service
 from src.services.user import UserService, get_user_service
-from src.schemas.user import UserLogin
+from src.core.limiter import limiter
 
 router = APIRouter()
 
 
 @traced("api_login_user")
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
 async def login(
     request: Request,
     user_data: UserLogin,
@@ -36,7 +38,9 @@ async def login(
 
 @traced("api_logout_user")
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
 async def logout(
+    request: Request,
     access_token: str = Depends(oauth2_scheme),
     current_user: User = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
@@ -50,7 +54,9 @@ async def logout(
     "/refresh",
     response_model=TokenResponse,
 )
+@limiter.limit("10/minute")
 async def refresh_token(
+    request: Request,
     data: RefreshTokenSchema,
     auth_service: AuthService = Depends(get_auth_service),
 ):

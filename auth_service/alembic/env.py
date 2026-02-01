@@ -1,15 +1,15 @@
 import asyncio
 from logging.config import fileConfig
-import os
-import sys
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-from src.db.postgres import dsn, Base
 from alembic import context
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Импортируем Pydantic-настройки и модели, чтобы autogenerate их увидел
+from src.core.config import settings
+from src.db.postgres import Base
+from src.models import entity, social_account
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -20,7 +20,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", dsn)
+# Устанавливаем URL базы данных из Pydantic-настроек для надежности
+# Заменяем '%' на '%%', чтобы избежать ошибок интерполяции в configparser
+config.set_main_option("sqlalchemy.url", str(settings.POSTGRES_DSN).replace("%", "%%"))
+
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -48,7 +51,7 @@ def run_migrations_offline():
 
 async def run_migrations_online():
     connectable: AsyncEngine = create_async_engine(
-        config.get_main_option("sqlalchemy.url"),
+        str(settings.POSTGRES_DSN),
         echo=False,
     )
 

@@ -54,8 +54,8 @@ class RoleService:
         return await self.roles_repo.delete(role_id)
 
     async def set_role(self, role_user: RoleUserSchema) -> bool:
-        role = await self.roles_repo.get(role_user.role_id)
-        user = await self.user_repo.get(role_user.user_id)
+        role = await self.roles_repo.get_by_name(role_user.role_name)
+        user = await self.user_repo.get(user_id=role_user.user_id)
 
         if not role or not user:
             return False  # Указываем на неудачу, обработка будет в API
@@ -65,11 +65,12 @@ class RoleService:
             return True
 
         user.roles.append(role)
+        await self.session.commit()
         return True
 
     async def revoke_role(self, role_user: RoleUserSchema) -> bool:
         role = await self.roles_repo.get_by_name(role_user.role_name)
-        user = await self.user_repo.get(role_user.user_id)
+        user = await self.user_repo.get(user_id=role_user.user_id)
 
         if not role or not user or role not in user.roles:
             return False  # Нечего отзывать
@@ -79,7 +80,7 @@ class RoleService:
 
     async def check_role(self, role_user: RoleUserSchema) -> bool:
         role = await self.roles_repo.get_by_name(role_user.role_name)
-        user = await self.user_repo.get(role_user.user_id)
+        user = await self.user_repo.get(user_id=role_user.user_id)
 
         if not role or not user:
             return False

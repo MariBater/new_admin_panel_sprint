@@ -7,17 +7,20 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 
 
-from src.api.v1 import auth, roles, users
+from src.api.v1 import auth, roles, users, social_auth
 from src.core.logger import app_logger
 from src.core.config import settings
 from src.db import redis as redis_db
-from src.db import postgres as posrgres_db
+from src.db import postgres as postgres_db
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from src.core.limiter import limiter
 
 
 @asynccontextmanager
@@ -28,14 +31,15 @@ async def lifespan(app: FastAPI):
         redis_db.redis = Redis(
             host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True
         )
-        redis_db.redis.ping()
-        app_logger.info("Successfully connected to Redis.")
+        if await redis_db.redis.ping():
+            app_logger.info("Successfully connected to Redis.")
+
     except Exception as e:
         app_logger.error(f"Failed to connect to Redis: {e}", exc_info=True)
 
     try:
         app_logger.info("Attempting to connect to Postgres...")
-        async with posrgres_db.engine.begin() as conn:
+        async with postgres_db.engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
         app_logger.info("Database connection successful")
     except Exception as e:
@@ -47,7 +51,7 @@ async def lifespan(app: FastAPI):
         await redis_db.redis.close()
         app_logger.info("Redis connection closed.")
 
-    await posrgres_db.engine.dispose()
+    await postgres_db.engine.dispose()
     app_logger.info("Postgres connection closed.")
 
 
@@ -65,7 +69,9 @@ def configure_tracer() -> None:
     trace.set_tracer_provider(tracer_provider)
 
 
-configure_tracer()
+if settings.TRACING_ENABLED:
+    configure_tracer()
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Сервис авторизации",
@@ -76,11 +82,16 @@ app = FastAPI(
     lifespan=lifespan,
     root_path="/auth",
 )
-FastAPIInstrumentor.instrument_app(
-    app,
-    tracer_provider=trace.get_tracer_provider(),
-    excluded_urls="health,/metrics,/docs,/openapi.json,/favicon.ico",
-)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+if settings.TRACING_ENABLED:
+    FastAPIInstrumentor.instrument_app(
+        app,
+        tracer_provider=trace.get_tracer_provider(),
+        excluded_urls="health,/metrics,/docs,/openapi.json,/favicon.ico",
+    )
 
 
 @app.middleware('http')
@@ -97,6 +108,13 @@ async def before_request(request: Request, call_next):
 
 # Подключение роутеров к приложению.
 # Теги используются для группировки эндпоинтов в документации.
-app.include_router(auth.router, prefix='/api/v1/auth', tags=['Авторизация'])
+app.include_router(
+    auth.router,
+    prefix='/api/v1/auth',
+    tags=['Авторизация'],
+)
 app.include_router(users.router, prefix='/api/v1/users', tags=['Пользователи'])
 app.include_router(roles.router, prefix='/api/v1/roles', tags=['Управление ролями'])
+app.include_router(
+    social_auth.router, prefix='/api/v1', tags=['Социальная аутентификация (OAuth)']
+)

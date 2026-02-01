@@ -1,34 +1,54 @@
-from dotenv import load_dotenv
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-load_dotenv()
+from pydantic import PostgresDsn, computed_field
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=f'.env', env_file_encoding='utf-8')
+    # Pydantic-settings автоматически загружает .env, load_dotenv() не нужен.
+    # extra='ignore' предотвращает ошибку валидации, если в окружении есть
+    # переменные, не определенные в этой модели (например, DATABASE_URL для Alembic).
+    model_config = SettingsConfigDict(
+        env_file='.env', env_file_encoding='utf-8', extra='ignore'
+    )
 
-    PROJECT_NAME: str = Field('auth-service', alias='PROJECT_NAME')
+    # Использование alias избыточно, когда имя поля совпадает с переменной окружения.
+    PROJECT_NAME: str = 'auth-service'
 
-    REDIS_HOST: str = Field('127.0.0.1', alias='REDIS_HOST')
-    REDIS_PORT: int = Field(6379, alias='REDIS_PORT')
+    REDIS_HOST: str = '127.0.0.1'
+    REDIS_PORT: int = 6379
 
-    POSTGRES_PASSWORD: str = Field('', alias='POSTGRES_PASSWORD')
-    POSTGRES_DB: str = Field('auth-db', alias='POSTGRES_DB')
-    POSTGRES_USER: str = Field('postgres', alias='POSTGRES_USER')
-    POSTGRES_HOST: str = Field('auth-db', alias='POSTGRES_HOST')
-    POSTGRES_PORT: int = Field(5432, alias='POSTGRES_PORT')
+    POSTGRES_PASSWORD: str = ''
+    POSTGRES_DB: str = 'auth-db'
+    POSTGRES_USER: str = 'postgres'
+    POSTGRES_HOST: str = 'auth-db'
+    POSTGRES_PORT: int = 5432
+
+    @computed_field
+    @property
+    def POSTGRES_DSN(self) -> PostgresDsn:
+        return PostgresDsn.build(
+            scheme="postgresql+asyncpg",
+            username=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD,
+            host=self.POSTGRES_HOST,
+            port=self.POSTGRES_PORT,
+            path=self.POSTGRES_DB,
+        )
 
     # Настройки для JWT
-    SECRET_KEY: str = Field(
-        'your-super-secret-key-for-auth-service', alias='SECRET_KEY'
-    )
-    ALGORITHM: str = Field("HS256", alias='ALGORITHM')
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(7, alias='ACCESS_TOKEN_EXPIRE_MINUTES')
+    SECRET_KEY: str = 'your-super-secret-key-for-auth-service'
+    ALGORITHM: str = 'HS256'
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Исправлена ошибка: alias был 'ACCESS_TOKEN_EXPIRE_MINUTES'
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    JAEGER_ENDPOINT: str = Field('http://jaeger:4317', alias='JAEGER_ENDPOINT')
-    JAEGER_SERVICE_NAME: str = Field('', alias='JAEGER_SERVICE_NAME')
+    JAEGER_ENDPOINT: str = 'http://jaeger:4317'
+    JAEGER_SERVICE_NAME: str = ''
+    TRACING_ENABLED: bool = True
+
+    # Настройки для Yandex OAuth
+    YANDEX_CLIENT_ID: str = ''
+    YANDEX_CLIENT_SECRET: str = ''
+    YANDEX_REDIRECT_URI: str = ''
 
 
 settings = Settings()

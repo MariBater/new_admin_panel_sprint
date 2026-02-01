@@ -1,12 +1,26 @@
 import pytest
 from httpx import AsyncClient
+from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock
+import uuid
+from src.main import app
+from src.services.auth import get_auth_service
+from src.services.user import get_user_service
+from src.models.entity import User
 
 
 @pytest.mark.asyncio
-async def test_login(client: AsyncClient):
-    user_login = {"login": "user3", "password": "pass3"}
+async def test_login(client: AsyncClient, fake_auth_service: AsyncMock, fake_user_service: AsyncMock):
+    user_login = {"login": "user3", "password": "pass3"} # type: ignore
 
-    response = await client.post("/api/v1/auth/login", json=user_login)
+    # Настраиваем моки
+    mock_user = User(login="user3", password="pass3", email="user3@example.com")
+    mock_user.check_password = lambda x: True  # Мокаем проверку пароля
+    fake_user_service.get_user_by_login.return_value = mock_user
+    fake_auth_service.create_access_token.return_value = "access123"
+    fake_auth_service.create_refresh_token.return_value = "refresh123"
+
+    response = await client.post("/auth/api/v1/auth/login", json=user_login)
 
     assert response.status_code == 200
     data = response.json()
@@ -16,18 +30,21 @@ async def test_login(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_logout_success(client: AsyncClient, fake_auth_service):
+async def test_logout_success(client: AsyncClient, fake_auth_service: AsyncMock, fake_user_service: AsyncMock):
     """
     Проверяет, что logout:
       - вызывает метод auth_service.logout
       - возвращает 204 No Content
     """
+    # Мокаем get_current_user
+    mock_user = User(login="user", password="pw", email="e@e.com")
+    fake_auth_service.get_user_from_token.return_value = mock_user
 
     fake_auth_service.logout.return_value = None
 
     headers = {"Authorization": "Bearer access123"}
 
-    response = await client.post("/api/v1/auth/logout", headers=headers)
+    response = await client.post("/auth/api/v1/auth/logout", headers=headers)
 
     # --- Проверка ---
     assert response.status_code == 204
@@ -40,15 +57,17 @@ async def test_logout_success(client: AsyncClient, fake_auth_service):
 
 
 @pytest.mark.asyncio
-async def test_refresh_token_success(client: AsyncClient, fake_auth_service):
+async def test_refresh_token_success(client: AsyncClient, fake_auth_service: AsyncMock):
+    # The actual method being called is create_access_token and create_refresh_token
+    # The endpoint calls `auth_service.refresh`. We need to mock this method.
     fake_auth_service.refresh.return_value = {
-        "access_token": "new_access",
-        "refresh_token": "new_refresh",
+        "access_token": "new_access", "refresh_token": "new_refresh"
     }
+    fake_auth_service.get_user_from_token.return_value = User(id=uuid.uuid4(), login="test", email="test@test.com", password="pw")
 
     payload = {"refresh_token": "refresh123"}
 
-    response = await client.post("/api/v1/auth/refresh", json=payload)
+    response = await client.post("/auth/api/v1/auth/refresh", json=payload)
 
     assert response.status_code == 200
     assert response.json() == {
@@ -56,6 +75,8 @@ async def test_refresh_token_success(client: AsyncClient, fake_auth_service):
         "refresh_token": "new_refresh",
     }
 
+    # The service decodes the token, gets the user, and creates new tokens.
+    # We can assert that the token decoding was attempted.
     fake_auth_service.refresh.assert_awaited_once_with("refresh123")
 
 

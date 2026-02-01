@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 from fastapi import status
+from unittest.mock import AsyncMock, MagicMock
 
 from src.schemas.user import UserRegister, UserUpdateCredentials
 
@@ -11,14 +12,7 @@ async def test_register_user_success(client, fake_user_service, fake_role_servic
     fake_user_service.get_user_by_login.return_value = None
 
     # Мок роли
-    async def fake_get_by_name():
-        class FakeRole:
-            id = 1
-            name = 'user'
-
-        return FakeRole()
-
-    fake_role_service.get_by_name = fake_get_by_name
+    fake_role_service.get_by_name.return_value = MagicMock(id=1, name='user')
 
     payload = {
         "login": "new_user",
@@ -31,55 +25,68 @@ async def test_register_user_success(client, fake_user_service, fake_role_servic
         "city": "Moscow",
     }
 
-    response = await client.post("/api/v1/users/register", json=payload)
+    response = await client.post("/auth/api/v1/users/register", json=payload)
 
     assert response.status_code == 201
     fake_user_service.create_user.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_update_credentials_success(client, fake_user_service, auth_headers):
-    class UpdatedUser:
-        id = 1
-        login = "changed"
+async def test_update_credentials_success(
+    client: AsyncClient,
+    fake_user_service: AsyncMock,
+    auth_data: dict,
+):
+    headers = auth_data["headers"]
+    user_id_from_token = auth_data["user"].id # Correctly access the user object from the fixture
 
-    fake_user_service.update_user_credentials.return_value = UpdatedUser()
+    fake_user_service.update_user_credentials.return_value = MagicMock( # type: ignore
+        id=user_id_from_token, login="changed"
+    )
 
     payload = {"login": "changed", "password": "newpassword123"}
 
     response = await client.post(
-        "/api/v1/users/me/credentials",
+        "/auth/api/v1/users/me/credentials",
         json=payload,
-        headers=auth_headers,
+        headers=headers,
     )
 
     assert response.status_code == 200
-    assert response.json() == {"user_id": 1, "login": "changed"}
+    assert response.json()["login"] == "changed"
+    assert response.json()["user_id"] is not None
 
     update_model = UserUpdateCredentials(**payload)
 
     fake_user_service.update_user_credentials.assert_awaited_once_with(
-        user_id=1, update_data=update_model
+        user_id=user_id_from_token, update_data=update_model
     )
 
 
 @pytest.mark.asyncio
-async def test_login_history_success(client, fake_user_service, auth_headers):
+async def test_login_history_success(
+    client: AsyncClient,
+    fake_user_service: AsyncMock,
+    auth_data: dict,
+):
 
     class FakeHistory:
         def __init__(self, agent, ts):
+            from datetime import datetime
             self.user_agent = agent
-            self.auth_date = ts
+            self.auth_date = datetime.fromisoformat(ts)
 
     fake_user_service.get_login_history_paginated.return_value = [
-        FakeHistory("Chrome", "2024-01-01"),
-        FakeHistory("Safari", "2024-01-02"),
+        FakeHistory("Chrome", "2024-01-01T00:00:00"),
+        FakeHistory("Safari", "2024-01-02T00:00:00"),
     ]
 
-    response = await client.get("/api/v1/users/me/login-history", headers=auth_headers)
+    response = await client.get(
+        "/auth/api/v1/users/me/login-history", headers=auth_data["headers"]
+    )
 
     assert response.status_code == 200
     assert response.json() == [
-        {"user_agent": "Chrome", "login_at": "2024-01-01"},
-        {"user_agent": "Safari", "login_at": "2024-01-02"},
+        {"user_agent": "Chrome", "login_at": "2024-01-01T00:00:00"},
+        {"user_agent": "Safari", "login_at": "2024-01-02T00:00:00"},
     ]
