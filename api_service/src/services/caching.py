@@ -1,0 +1,54 @@
+import json
+from functools import wraps
+from typing import Callable, Type, TypeVar
+import hashlib
+from pydantic import BaseModel
+
+from core.config import settings
+from .cache_abc import AsyncCache
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
+
+
+def redis_cache(
+    key_prefix: str,
+    model: Type[ModelT],
+    single_item: bool = False,
+):
+    def decorator(func: Callable):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            service = args[0]
+            cache: AsyncCache = service.cache
+
+            key_payload = json.dumps(kwargs, sort_keys=True, default=str)
+            key_suffix = hashlib.md5(key_payload.encode()).hexdigest()
+            cache_key = f"{key_prefix}:{key_suffix}"
+
+            cached_data = await cache.get(cache_key)
+            if cached_data:
+                cached_data = cached_data.decode('utf-8')
+                if model:
+                    if single_item:
+                        return model.model_validate_json(cached_data)
+                    return [
+                        model.model_validate(item) for item in json.loads(cached_data)
+                    ]
+                return json.loads(cached_data)
+
+            result = await func(*args, **kwargs)
+            if result:
+                if single_item:
+                    data_to_cache = result.model_dump_json()
+                else:
+                    data_to_cache = json.dumps([item.model_dump(mode='json') for item in result], default=str)
+                await cache.set(
+                        cache_key,
+                        data_to_cache,
+                        expire=settings.CACHE_EXPIRE_IN_SECONDS,
+                    )
+            return result
+
+        return wrapper
+
+    return decorator

@@ -1,0 +1,65 @@
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from auth_service.src.core.dependencies import get_current_user, oauth2_scheme
+from auth_service.src.core.tracing import traced
+from auth_service.src.models.entity import User
+from auth_service.src.schemas.auth import RefreshTokenSchema, TokenResponse
+from auth_service.src.schemas.user import UserLogin
+from auth_service.src.services.auth import AuthService, get_auth_service
+from auth_service.src.services.user import UserService, get_user_service
+from auth_service.src.core.limiter import limiter
+
+router = APIRouter()
+
+
+@traced("api_login_user")
+@router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
+async def login(
+    request: Request,
+    user_data: UserLogin,
+    user_service: UserService = Depends(get_user_service),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    user = await user_service.get_user_by_login(user_data.login)
+    if not user or not user.check_password(user_data.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect login or password",
+        )
+
+    access_token = await auth_service.create_access_token(user)
+    refresh_token = await auth_service.create_refresh_token(user)
+
+    user_agent = request.headers.get("user-agent")
+    await user_service.login(user_id=user.id, user_agent=user_agent)
+
+    return {"access_token": access_token, "refresh_token": refresh_token}
+
+
+@traced("api_logout_user")
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
+async def logout(
+    request: Request,
+    access_token: str = Depends(oauth2_scheme),
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    await auth_service.logout(user=current_user, access_token=access_token)
+    return True
+
+
+@traced("api_refresh_token")
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+)
+@limiter.limit("10/minute")
+async def refresh_token(
+    request: Request,
+    data: RefreshTokenSchema,
+    auth_service: AuthService = Depends(get_auth_service),
+    user_service: UserService = Depends(get_user_service),
+):
+    token_response = await auth_service.refresh(data.refresh_token, user_service)
+    return token_response

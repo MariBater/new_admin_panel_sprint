@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+pythonpath = [
+    ".",
+]
+testpaths = ["api_service/tests", "auth_service/tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"

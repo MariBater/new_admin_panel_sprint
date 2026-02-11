@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  auth-db:
+    image: postgres:15-alpine
+    container_name: auth-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      # Эта строка - ключ к решению. Она связывает порт 5432 контейнера
+      # с портом 5432 на вашем компьютере (localhost).
+      - "5432:5432"
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Другие сервисы (app, content-db и т.д.) здесь...
+
+volumes:
+  auth_postgres_data:
+  # Другие volumes...
+
+networks:
+  default:
+    driver: bridge

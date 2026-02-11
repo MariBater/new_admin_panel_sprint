@@ -1,0 +1,65 @@
+from http import HTTPStatus
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from auth_service.src.core.dependencies import get_current_user
+from auth_service.src.core.tracing import traced
+from auth_service.src.models.entity import User
+from auth_service.src.schemas.user import UserRegister, UserUpdateCredentials
+from auth_service.src.services.role import RoleService, get_role_service
+from auth_service.src.services.user import UserService, get_user_service
+from opentelemetry import trace
+
+router = APIRouter()
+
+
+@traced("api_register_user")
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+async def register_user(
+    user_data: UserRegister,
+    user_service: UserService = Depends(get_user_service),
+    role_service: RoleService = Depends(get_role_service),
+) -> bool:
+    user = await user_service.get_user_by_login(login=user_data.login)
+    if user:
+        raise HTTPException(
+            status_code=HTTPStatus.CONFLICT,
+            detail="User already created",
+        )
+    role = await role_service.get_by_name('user')
+    await user_service.create_user(user_data, role)
+
+    return True
+
+
+@traced("api_me_credentials_user")
+@router.post("/me/credentials", status_code=status.HTTP_200_OK)
+async def update_user_credentials(
+    update_data: UserUpdateCredentials,
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(get_user_service),
+):
+    if not update_data.login and not update_data.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No data to update."
+        )
+
+    updated_user = await user_service.update_user_credentials(
+        user_id=current_user.id, update_data=update_data
+    )
+
+    return {"user_id": updated_user.id, 'login': updated_user.login}
+
+
+@traced("api_me_login_history_user")
+@router.get("/me/login-history", status_code=status.HTTP_200_OK)
+async def get_user_login_history(
+    page: int = Query(default=1, ge=1, description="Номер страницы"),
+    size: int = Query(default=10, ge=1, le=100, description="Размер страницы"),
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(get_user_service),
+):
+    user_history_list = await user_service.get_login_history_paginated(
+        user_id=current_user.id, page=page, size=size
+    )
+    return [
+        {"user_agent": h.user_agent, 'login_at': h.auth_date} for h in user_history_list
+    ]

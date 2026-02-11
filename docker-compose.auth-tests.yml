@@ -1,0 +1,47 @@
+services:
+  redis:
+    image: redis:8.2.2
+    volumes:
+      - test_redis_data:/data
+    command: redis-server --appendonly yes
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "6379:6379"
+
+  test-auth-db:
+    image: postgres:17
+    env_file:
+       - ./auth_service/test.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d test-auth-db"]
+      interval: 1s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - test_pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  test-auth-service:
+    build: ./auth_service/.
+    env_file:
+       - ./auth_service/test.env
+    command: >
+      sh -c "alembic upgrade head && pytest -q --disable-warnings --maxfail=1"
+    volumes:
+      - ./auth_service:/app
+    ports:
+      - "8001:8001"
+    depends_on:
+      test-auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+        
+volumes:
+  test_pg_data:
+  test_redis_data:

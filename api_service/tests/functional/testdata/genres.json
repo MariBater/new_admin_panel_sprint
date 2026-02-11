@@ -1,0 +1,7 @@
+[
+  {"id": "ef86b8ff-3c82-4d31-ad8e-72b69f4e3f90", "name": "Action", "description": "Action movies description"},
+  {"id": "fb111f22-121e-44a7-b78f-b19191810fb0", "name": "Sci-Fi", "description": "Sci-Fi movies description"},
+  {"id": "82c8a135-2e3c-4322-87a3-d3523f31b2c8", "name": "Comedy", "description": "Funny movies"},
+  {"id": "3d8d9bf5-0d90-4353-88ba-4ccc5d2c07ff", "name": "Drama", "description": "Dramatic movies"},
+  {"id": "0133b669-7987-4223-a481-9a35b1b1abf3", "name": "Horror", "description": "Scary movies"}
+]
